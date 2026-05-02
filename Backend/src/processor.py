@@ -88,6 +88,59 @@ def update_known_words(new_words_list: list, filepath: str = "known_words.txt"):
     except Exception as e:
         logger.error(f"Error writing to {filepath}: {e}")
 
+def truncate_context(sentence: str, target_word: str, max_length: int = 150) -> str:
+    """
+    Truncates a sentence to a maximum length while keeping the target word visible.
+    
+    Args:
+        sentence (str): The full context sentence.
+        target_word (str): The word that must remain visible.
+        max_length (int): The maximum length of the resulting string.
+        
+    Returns:
+        str: The truncated sentence with '...' if cut off.
+    """
+    if len(sentence) <= max_length:
+        return sentence
+
+    # Find the position of the target word (case-insensitive)
+    # Use regex to find word boundaries to avoid partial matches (e.g., 'read' in 'reading')
+    pattern = re.compile(rf'\b{re.escape(target_word)}\b', re.IGNORECASE)
+    match = pattern.search(sentence)
+    
+    if not match:
+        # Fallback if regex fails for some reason: just return the first max_length chars
+        return sentence[:max_length-3] + "..."
+
+    start_idx, end_idx = match.span()
+    
+    # Calculate how much space we have around the word
+    remaining_length = max_length - (end_idx - start_idx) - 6  # 6 for two '...'
+    
+    # We want to show roughly equal amount of text before and after the word
+    prefix_length = remaining_length // 2
+    suffix_length = remaining_length - prefix_length
+    
+    # Determine the actual start and end indices
+    new_start = max(0, start_idx - prefix_length)
+    new_end = min(len(sentence), end_idx + suffix_length)
+    
+    # Adjust if we hit the boundaries
+    if new_start == 0:
+        new_end = min(len(sentence), max_length - 3)
+    elif new_end == len(sentence):
+        new_start = max(0, len(sentence) - (max_length - 3))
+        
+    result = sentence[new_start:new_end]
+    
+    # Add ellipses if needed
+    if new_start > 0:
+        result = "..." + result
+    if new_end < len(sentence):
+        result = result + "..."
+        
+    return result
+
 def process_data(article_data: dict, known_words_file: str = "known_words.txt") -> dict:
     """
     Processes the raw tokenized article data to extract target vocabulary.
@@ -100,6 +153,7 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
     - Remove standard English stop words
     - Keep only words with length >= 5
     - Skip words in the "Known Words Blacklist"
+    - Truncate context for Anki UX
     
     Args:
         article_data (dict): The output from the scraper module, containing sentences and words.
@@ -161,8 +215,10 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
                 
             # 9. Deduplication & Context mapping
             if word_lemma not in unique_vocabulary:
+                # Truncate context for Anki UX
+                truncated_context = truncate_context(original_sentence, token)
                 unique_vocabulary[word_lemma] = {
-                    "context": original_sentence,
+                    "context": truncated_context,
                     "pos": wn_pos  # Store for dictionary lookup
                 }
                 

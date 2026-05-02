@@ -4,9 +4,14 @@ from bs4 import BeautifulSoup
 import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
 from urllib.parse import urlparse
+from fake_useragent import UserAgent
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 # Setup logger for this module
 logger = logging.getLogger(__name__)
+
+# Initialize UserAgent
+ua = UserAgent()
 
 def setup_nltk():
     """
@@ -27,11 +32,22 @@ class BaseScraper:
     Implements the orchestration logic for fetching and tokenizing articles.
     """
     def __init__(self):
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                          'AppleWebKit/537.36 (KHTML, like Gecko) '
-                          'Chrome/91.0.4472.124 Safari/537.36'
-        }
+        pass
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type(requests.RequestException),
+        before_sleep=lambda retry_state: logger.info(f"Retrying fetch ({retry_state.attempt_number}/3)...")
+    )
+    def _get_response(self, url: str) -> requests.Response:
+        """
+        Internal method to fetch URL with random User-Agent and retries.
+        """
+        headers = {'User-Agent': ua.random}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response
 
     def fetch_article(self, url: str) -> dict:
         """
@@ -45,10 +61,9 @@ class BaseScraper:
         """
         logger.info(f"Using {self.__class__.__name__} to fetch: {url}")
         try:
-            response = requests.get(url, headers=self.headers, timeout=10)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            logger.error(f"Error fetching URL {url}: {e}")
+            response = self._get_response(url)
+        except Exception as e:
+            logger.error(f"Failed to fetch URL after retries {url}: {e}")
             return None
 
         soup = BeautifulSoup(response.content, 'html.parser')
