@@ -6,11 +6,16 @@ A professional Python-based CLI tool designed to streamline language learning by
 
 ## 🌟 Key Features
 
-- **Smart Scraping**: Built-in support for popular news outlets like **VnExpress (English)** and **BBC News**, with a robust generic fallback for other domains.
-- **Advanced NLP**: Implements **Triple-Pass Lemmatization** (Verb, Noun, Adjective) to reduce redundancy and extract only the most meaningful base forms of words.
-- **Offline Dictionary Enrichment**: Automatically fetches definitions and parts of speech using the **WordNet** database (via NLTK), ensuring fast and private lookups.
-- **Modern Workflow**: Managed by `uv` for lightning-fast dependency management and consistent environments.
-- **Customizable Blacklist**: Easily skip words you already know by adding them to `known_words.txt`.
+- **Smart Scraping**: Built-in support for **VnExpress (English)** and **BBC News**, featuring a robust retry mechanism with exponential backoff and randomized User-Agents to prevent blocking.
+- **Context-Aware NLP**: 
+  - **POS Tagging**: Utilizes `nltk.pos_tag` to understand the grammatical context of each word.
+  - **Smart Lemmatization**: Performs accurate base-form reduction based on Part-of-Speech.
+  - **Context-Aware Definitions**: Fetches the most relevant WordNet definitions matching the word's usage in the sentence.
+- **Optimized Anki UX**: Implements **Smart Context Truncation** to keep flashcards readable while ensuring the target word remains perfectly centered in its context.
+- **Accented Character Support**: Correctly processes loanwords and names with accents (e.g., *café*, *résumé*).
+- **Modern Workflow**: Managed by `uv` for lightning-fast dependency management and consistent environments. Supports Python 3.10+.
+- **Automated Blacklist**: Effortlessly manage your `known_words.txt` via CLI flags to skip words you've already mastered.
+- **CI/CD Ready**: Fully integrated with GitHub Actions for automated testing and quality assurance.
 
 ## 🛠️ Installation
 
@@ -42,7 +47,7 @@ uv run main.py --url "https://www.bbc.com/news/articles/c0jje79z7jno" --output "
 ```
 
 ### Managing Known Words
-You can automate the update of `known_words.txt` to avoid seeing the same words again:
+Automate the update of `known_words.txt` to streamline your learning process:
 
 - **Auto-mark as known**: Append all extracted words from an article to your blacklist after generation.
   ```bash
@@ -50,7 +55,7 @@ You can automate the update of `known_words.txt` to avoid seeing the same words 
   ```
 - **Manual add**: Add a list of words directly to the blacklist and exit.
   ```bash
-  uv run main.py --add-known "apple, banana, cherry"
+  uv run main.py --add-known "essential, remarkable, challenge"
   ```
 
 ### Arguments
@@ -61,7 +66,7 @@ You can automate the update of `known_words.txt` to avoid seeing the same words 
 
 ## 🧪 Testing
 
-The project includes unit tests for the core processing logic. To run them:
+The project includes a comprehensive test suite for NLP processing and truncation logic.
 
 ```bash
 uv run test_processor.py
@@ -71,6 +76,7 @@ uv run test_processor.py
 
 ```text
 NewsToAnki/
+├── .github/workflows/       # CI/CD (GitHub Actions)
 ├── Backend/
 │   ├── main.py              # CLI Entry Point
 │   ├── test_processor.py    # Unit Tests
@@ -79,9 +85,9 @@ NewsToAnki/
 │   ├── uv.lock              # Lockfile
 │   └── src/                 # Core Package
 │       ├── __init__.py
-│       ├── scraper.py       # News Scraping Logic
-│       ├── processor.py     # NLP & Lemmatization
-│       ├── dictionary_lookup.py # WordNet Integration
+│       ├── scraper.py       # Robust Scraper (Retries, Fake UA)
+│       ├── processor.py     # POS Tagging, Smart Truncation
+│       ├── dictionary_lookup.py # Context-aware WordNet lookup
 │       └── anki_generator.py    # .apkg Generation
 ├── assets/                  # Documentation Assets
 └── README.md                # Project Documentation
