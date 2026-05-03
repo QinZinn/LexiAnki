@@ -219,7 +219,8 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
                 truncated_context = truncate_context(original_sentence, token)
                 unique_vocabulary[word_lemma] = {
                     "context": truncated_context,
-                    "pos": wn_pos  # Store for dictionary lookup
+                    "pos": wn_pos,  # Store for dictionary lookup
+                    "original_token": token
                 }
                 
     logger.info(f"NLP Processing complete. Found {len(unique_vocabulary)} unique target words after filtering.")

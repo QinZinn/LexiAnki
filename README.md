@@ -24,7 +24,7 @@ This project uses [uv](https://github.com/astral-sh/uv) for dependency managemen
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/your-username/NewsToAnki.git
-   cd NewsToAnki/Backend
+   cd NewsToAnki
    ```
 
 2. **Sync dependencies**:
@@ -34,7 +34,7 @@ This project uses [uv](https://github.com/astral-sh/uv) for dependency managemen
 
 ## 🚀 Usage
 
-Run the tool from the `Backend/` directory using `uv run`.
+Run the tool from the repository root using `uv run`.
 
 ### Basic Command
 ```bash
@@ -85,19 +85,18 @@ uv run test_processor.py
 ```text
 NewsToAnki/
 ├── .github/workflows/       # CI/CD (GitHub Actions)
-├── Backend/
-│   ├── main.py              # CLI Entry Point
-│   ├── test_processor.py    # Unit Tests
-│   ├── known_words.txt      # Vocabulary Blacklist
-│   ├── pyproject.toml       # uv Configuration
-│   ├── uv.lock              # Lockfile
-│   └── src/                 # Core Package
-│       ├── __init__.py
-│       ├── scraper.py       # Robust Scraper (Retries, Fake UA)
-│       ├── processor.py     # POS Tagging, Smart Truncation
-│       ├── dictionary_lookup.py # Context-aware WordNet lookup
-│       ├── anki_generator.py    # .apkg Generation
-│       └── exporter.py      # CSV Export Logic
+├── main.py                  # CLI Entry Point
+├── test_processor.py        # Unit Tests
+├── known_words.txt          # Vocabulary Blacklist
+├── pyproject.toml           # uv Configuration
+├── uv.lock                  # Lockfile
+├── src/                     # Core Package
+│   ├── __init__.py
+│   ├── scraper.py           # Robust Scraper (Retries, Fake UA)
+│   ├── processor.py         # POS Tagging, Smart Truncation
+│   ├── dictionary_lookup.py # Context-aware WordNet lookup
+│   ├── anki_generator.py    # .apkg Generation
+│   └── exporter.py          # CSV Export Logic
 ├── assets/                  # Documentation Assets
 └── README.md                # Project Documentation
 ```

@@ -99,10 +99,12 @@ def generate_anki_deck(enriched_data: dict, output_filename: str = "English_News
     # Add notes to the deck
     for word, details in enriched_data.items():
         original_context = details.get("context", "")
+        original_token = details.get("original_token", word)
+        
         # Highlight the target word in the context sentence (case-insensitive replace)
-        # Using regex to wrap the word with a highlight span while keeping original casing
+        # Using regex to wrap the original token with a highlight span while keeping original casing
         highlighted_context = re.sub(
-            r'\b(' + re.escape(word) + r')\b', 
+            r'\b(' + re.escape(original_token) + r')\b', 
             r'<span class="highlight">\1</span>', 
             original_context, 
             flags=re.IGNORECASE

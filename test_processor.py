@@ -32,7 +32,12 @@ def test_lemmatization():
     actual_words = set(result.keys())
     
     assert expected_words.issubset(actual_words) or actual_words == expected_words, f"Expected {expected_words}, but got {actual_words}"
-    print("\nVerification successful! Lemmatization and filtering are working correctly.")
+    
+    # Verify original_token storage
+    assert result["large"]["original_token"] == "largest"
+    assert result["category"]["original_token"] == "categories"
+    
+    print("\nVerification successful! Lemmatization, filtering, and original_token storage are working correctly.")
 
 def test_truncation():
     print("\nTesting context truncation...")
