@@ -23,7 +23,7 @@ This project uses [uv](https://github.com/astral-sh/uv) for dependency managemen
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/NewsToAnki.git
+   git clone https://github.com/QinZinn/NewsToAnki.git
    cd NewsToAnki
    ```
 
