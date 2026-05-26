@@ -70,7 +70,7 @@ def generate_anki_deck(enriched_data: dict, output_filename: str = "English_News
     """
 
     # Create Anki Model
-    model_id = 1607392319 # Hardcoded unique Model ID
+    model_id = int(hashlib.md5(b"EnglishNewsVocabModel_v1").hexdigest()[:8], 16)
     my_model = genanki.Model(
         model_id,
         'English News Vocab Model',

@@ -29,7 +29,10 @@ class BaseScraper:
     Implements the orchestration logic for fetching and tokenizing articles.
     """
     def __init__(self):
-        pass
+        try:
+            self._ua = UserAgent()
+        except Exception:
+            self._ua = None
 
     @retry(
         stop=stop_after_attempt(3),
@@ -41,14 +44,7 @@ class BaseScraper:
         """
         Internal method to fetch URL with random User-Agent and retries.
         """
-        # fake_useragent initialization can crash during import/usage depending
-        # on environment; initialize per-request with a safe fallback.
-        try:
-            ua = UserAgent()
-            user_agent = ua.random
-        except Exception:
-            user_agent = "Mozilla/5.0 (compatible; NewsToAnki/1.0)"
-
+        user_agent = self._ua.random if self._ua else "Mozilla/5.0 (compatible; NewsToAnki/1.0)"
         headers = {'User-Agent': user_agent}
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
