@@ -69,7 +69,8 @@ def lookup_definitions(processed_data: dict) -> dict:
                 enriched_data[word] = {
                     "context": data["context"],
                     "part_of_speech": full_pos,
-                    "definition": definition
+                    "definition": definition,
+                    "original_token": data.get("original_token", word)
                 }
             else:
                 logger.warning(f"No definition found for '{word}' in WordNet. Skipping...")

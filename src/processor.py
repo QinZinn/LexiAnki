@@ -130,6 +130,7 @@ def truncate_context(sentence: str, target_word: str, max_length: int = 150) -> 
         new_end = min(len(sentence), max_length - 3)
     elif new_end == len(sentence):
         new_start = max(0, len(sentence) - (max_length - 3))
+        new_end = len(sentence)
         
     result = sentence[new_start:new_end]
     
@@ -200,11 +201,11 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
             wn_pos = get_wordnet_pos(tag)
             
             # 6. Lemmatization
-            # If we have a specific POS, use it. Otherwise, perform triple-pass as fallback
             if wn_pos:
                 word_lemma = lemmatizer.lemmatize(word_lower, pos=wn_pos)
             else:
-                word_lemma = lemmatizer.lemmatize(lemmatizer.lemmatize(lemmatizer.lemmatize(word_lower, pos='v'), pos='n'), pos='a')
+                # Default to WordNet's noun behavior when POS is unknown.
+                word_lemma = lemmatizer.lemmatize(word_lower)  # defaults to noun
                 
             # 7. Length constraint
             if len(word_lemma) < 5:

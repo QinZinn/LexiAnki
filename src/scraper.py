@@ -10,9 +10,6 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 # Setup logger for this module
 logger = logging.getLogger(__name__)
 
-# Initialize UserAgent
-ua = UserAgent()
-
 def setup_nltk():
     """
     Ensures that required NLTK datasets/models are downloaded.
@@ -44,7 +41,15 @@ class BaseScraper:
         """
         Internal method to fetch URL with random User-Agent and retries.
         """
-        headers = {'User-Agent': ua.random}
+        # fake_useragent initialization can crash during import/usage depending
+        # on environment; initialize per-request with a safe fallback.
+        try:
+            ua = UserAgent()
+            user_agent = ua.random
+        except Exception:
+            user_agent = "Mozilla/5.0 (compatible; NewsToAnki/1.0)"
+
+        headers = {'User-Agent': user_agent}
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         return response

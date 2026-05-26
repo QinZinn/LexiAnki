@@ -1,4 +1,5 @@
 import logging
+import hashlib
 import genanki
 import re
 
@@ -90,7 +91,7 @@ def generate_anki_deck(enriched_data: dict, output_filename: str = "English_News
     )
 
     # Create Anki Deck
-    deck_id = 2059400110 # Hardcoded unique Deck ID
+    deck_id = int(hashlib.md5(output_filename.encode()).hexdigest()[:8], 16)
     my_deck = genanki.Deck(
         deck_id,
         'English News Vocabulary'
