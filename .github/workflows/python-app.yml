@@ -25,5 +25,12 @@ jobs:
     - name: Install dependencies
       run: uv sync
 
+    - name: Build Rust extension
+      run: |
+        cd newstoanki_rs
+        uv run maturin build --release -o ../dist_rs
+        cd ..
+        uv pip install dist_rs/*.whl
+
     - name: Run tests
       run: uv run test_processor.py

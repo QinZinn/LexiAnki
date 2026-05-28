@@ -183,3 +183,8 @@ cython_debug/
 
 # Anki generated decks
 *.apkg
+
+# Rust / Cargo
+/newstoanki_rs/target/
+/newstoanki_rs/Cargo.lock
+*.pyd
