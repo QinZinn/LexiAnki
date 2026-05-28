@@ -1,4 +1,4 @@
-# News-to-Anki CLI 🚀
+# NewsToAnki CLI
 
 A professional Python-based CLI tool designed to streamline language learning by automating the extraction of target vocabulary from news articles and generating ready-to-use Anki flashcards (.apkg).
 
@@ -11,6 +11,7 @@ A professional Python-based CLI tool designed to streamline language learning by
   - **POS Tagging**: Utilizes `nltk.pos_tag` to understand the grammatical context of each word.
   - **Smart Lemmatization**: Performs accurate base-form reduction based on Part-of-Speech.
   - **Context-Aware Definitions**: Fetches the most relevant WordNet definitions matching the word's usage in the sentence.
+- **Hybrid Architecture**: Integrates a Rust-powered core via PyO3 for ultra-fast text filtering and processing, combining Python's flexibility with Rust's high-performance memory-safe execution.
 - **Optimized Anki UX**: Implements **Smart Context Truncation** to keep flashcards readable while ensuring the target word remains perfectly centered in its context.
 - **Accented Character Support**: Correctly processes loanwords and names with accents (e.g., *café*, *résumé*).
 - **Modern Workflow**: Managed by `uv` for lightning-fast dependency management and consistent environments. Supports Python 3.10+.
@@ -19,7 +20,9 @@ A professional Python-based CLI tool designed to streamline language learning by
 
 ## 🛠️ Installation
 
-This project uses [uv](https://github.com/astral-sh/uv) for dependency management.
+This project uses [uv](https://github.com/astral-sh/uv) for Python environment and dependency management.
+
+This project uses a Rust-based engine for high-performance text processing.
 
 1. **Clone the repository**:
    ```bash
@@ -89,14 +92,14 @@ NewsToAnki/
 ├── test_processor.py        # Unit Tests
 ├── known_words.txt          # Vocabulary Blacklist
 ├── pyproject.toml           # uv Configuration
-├── uv.lock                  # Lockfile
-├── src/                     # Core Package
+├── src/                     # Python Core Package
 │   ├── __init__.py
 │   ├── scraper.py           # Robust Scraper (Retries, Fake UA)
-│   ├── processor.py         # POS Tagging, Smart Truncation
+│   ├── processor.py         # POS Tagging, Rust-backed filtering/truncation
 │   ├── dictionary_lookup.py # Context-aware WordNet lookup
 │   ├── anki_generator.py    # .apkg Generation
 │   └── exporter.py          # CSV Export Logic
+├── newstoanki_rs/           # High-Performance Rust Engine
 ├── assets/                  # Documentation Assets
 └── README.md                # Project Documentation
 ```
