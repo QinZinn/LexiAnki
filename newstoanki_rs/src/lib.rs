@@ -103,7 +103,7 @@ fn truncate_context(sentence: &str, target_token: &str, max_length: usize) -> Py
     let end_char = start_char + token_len;
 
     if max_length <= token_len {
-        return Ok(target_token.to_string());
+        return Ok(matched.chars().take(max_length).collect());
     }
 
     let prefix_available = start_char;
@@ -146,7 +146,7 @@ fn truncate_context(sentence: &str, target_token: &str, max_length: usize) -> Py
     }
 
     if total_len > max_length {
-        return Ok(target_token.to_string());
+        return Ok(matched.chars().take(max_length).collect());
     }
 
     let new_start = start_char.saturating_sub(prefix_take);
