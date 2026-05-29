@@ -103,7 +103,7 @@ fn truncate_context(sentence: &str, target_token: &str, max_length: usize) -> Py
     let end_char = start_char + token_len;
 
     if max_length <= token_len {
-        return Ok(matched.chars().take(max_length).collect());
+        return Ok(target_token.to_string());
     }
 
     let prefix_available = start_char;
@@ -113,44 +113,40 @@ fn truncate_context(sentence: &str, target_token: &str, max_length: usize) -> Py
     let mut prefix_take = (budget_for_context / 2).min(prefix_available);
     let mut suffix_take = (budget_for_context - prefix_take).min(suffix_available);
 
-    let mut left_needed = prefix_take < prefix_available;
-    let mut right_needed = suffix_take < suffix_available;
+    let mut left_needed;
+    let mut right_needed;
+    let mut total_len;
 
-    let mut total_len = token_len
-        + prefix_take
-        + suffix_take
-        + if left_needed { 3 } else { 0 }
-        + if right_needed { 3 } else { 0 };
+    loop {
+        left_needed = prefix_take < prefix_available;
+        right_needed = suffix_take < suffix_available;
+        total_len = token_len
+            + prefix_take
+            + suffix_take
+            + if left_needed { 3 } else { 0 }
+            + if right_needed { 3 } else { 0 };
 
-    if token_len + if left_needed { 3 } else { 0 } + if right_needed { 3 } else { 0 } > max_length {
-        return Ok(matched.chars().take(max_length).collect());
-    }
+        if total_len <= max_length {
+            break;
+        }
 
-    if total_len > max_length {
-        let mut shrink = total_len - max_length;
-        while shrink > 0 && (prefix_take > 0 || suffix_take > 0) {
-            if prefix_take >= suffix_take && prefix_take > 0 {
-                prefix_take -= 1;
-            } else if suffix_take > 0 {
+        if prefix_take == 0 && suffix_take == 0 {
+            break;
+        }
+
+        if prefix_take > suffix_take {
+            prefix_take -= 1;
+        } else {
+            if suffix_take > 0 {
                 suffix_take -= 1;
             } else if prefix_take > 0 {
                 prefix_take -= 1;
             }
-            shrink -= 1;
         }
     }
 
-    left_needed = prefix_take < prefix_available;
-    right_needed = suffix_take < suffix_available;
-
-    total_len = token_len
-        + prefix_take
-        + suffix_take
-        + if left_needed { 3 } else { 0 }
-        + if right_needed { 3 } else { 0 };
-
     if total_len > max_length {
-        return Ok(matched.chars().take(max_length).collect());
+        return Ok(target_token.to_string());
     }
 
     let new_start = start_char.saturating_sub(prefix_take);
