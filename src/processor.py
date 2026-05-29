@@ -136,31 +136,34 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
             # 3. Normalization
             word_lower = token.lower()
             
+            # 4. Fail-fast validation (pre-lemmatization): skip short/invalid tokens early to save CPU.
+            # 5. Post-lemmatization validation: ensure the resulting base form still meets our constraints.
             if not newstoanki_rs.is_valid_word(word_lower):
                 continue
             
-            # 5. Map POS tag for lemmatization
+            # 6. Map POS tag for lemmatization
             wn_pos = get_wordnet_pos(tag)
             
-            # 6. Lemmatization
+            # 7. Lemmatization
             if wn_pos:
                 word_lemma = lemmatizer.lemmatize(word_lower, pos=wn_pos)
             else:
                 # Default to WordNet's noun behavior when POS is unknown.
                 word_lemma = lemmatizer.lemmatize(word_lower)  # defaults to noun
 
+            # 8. Validation (post-lemmatization)
             if not newstoanki_rs.is_valid_word(word_lemma):
                 continue
                 
-            # 8. Stop-words removal
+            # 9. Stop-words removal
             if word_lemma in stop_words:
                 continue
             
-            # 9. Known words blacklist removal
+            # 10. Known words blacklist removal
             if word_lemma in known_words:
                 continue
                 
-            # 10. Deduplication & Context mapping
+            # 11. Deduplication & Context mapping
             if word_lemma not in unique_vocabulary:
                 truncated_context = newstoanki_rs.truncate_context(original_sentence, token, 150)
                 unique_vocabulary[word_lemma] = {

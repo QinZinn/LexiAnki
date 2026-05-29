@@ -113,6 +113,7 @@ def generate_anki_deck(enriched_data: dict, output_filename: str = "English_News
 
         note = genanki.Note(
             model=my_model,
+            guid=genanki.guid_for(output_filename, word),
             fields=[
                 word, 
                 details.get("part_of_speech", ""), 

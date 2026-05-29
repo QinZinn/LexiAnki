@@ -11,7 +11,7 @@ def test_lemmatization():
         "data": [
             {
                 "sentence": "He was reading the largest books in various categories.",
-                "words": ["reading", "largest", "books", "various", "categories"]
+                "words": ["He", "was", "reading", "the", "largest", "books", "in", "various", "categories", "."]
             }
         ]
     }

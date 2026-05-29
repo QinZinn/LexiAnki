@@ -38,7 +38,9 @@ class BaseScraper:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type(requests.RequestException),
-        before_sleep=lambda retry_state: logger.info(f"Retrying fetch ({retry_state.attempt_number}/3)...")
+        before_sleep=lambda retry_state: logging.getLogger(__name__).info(
+            f"Retrying fetch ({retry_state.attempt_number}/3)..."
+        )
     )
     def _get_response(self, url: str) -> requests.Response:
         """
