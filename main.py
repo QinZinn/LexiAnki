@@ -121,6 +121,11 @@ def main():
 
         logger.info(f"Extracted {len(processed_data)} unique candidate words.")
 
+        # Apply --max-words limit if provided
+        if args.max_words > 0 and len(processed_data) > args.max_words:
+            logger.info(f"Applying --max-words limit of {args.max_words} before lookup.")
+            processed_data = dict(islice(processed_data.items(), args.max_words))
+
         # Phase 3: Dictionary Lookup
         logger.info("--- Phase 3: Dictionary Lookup (Offline via WordNet) ---")
         enriched_data = lookup_definitions(processed_data)
@@ -129,12 +134,6 @@ def main():
             sys.exit(0)
 
         logger.info(f"Enriched {len(enriched_data)} words with definitions.")
-
-        # Apply --max-words limit if provided
-        if args.max_words > 0 and len(enriched_data) > args.max_words:
-            logger.info(f"Applying limit of {args.max_words} words.")
-            # slice the dictionary
-            enriched_data = dict(islice(enriched_data.items(), args.max_words))
 
         # Handle --export-csv logic
         if args.export_csv:

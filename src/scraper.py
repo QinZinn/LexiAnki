@@ -131,8 +131,8 @@ class VnExpressScraper(BaseScraper):
         
         # Extract Content
         # VnExpress usually puts content in <p> tags with class 'Normal' or 'description'
-        paragraphs = soup.find_all('p', class_='description') or []
-        paragraphs += soup.find_all('p', class_='Normal') or []
+        paragraphs = soup.find_all('p', class_='description')
+        paragraphs += soup.find_all('p', class_='Normal')
         
         if not paragraphs:
             # Fallback to generic <p> if specific classes aren't found

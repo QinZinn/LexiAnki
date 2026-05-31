@@ -1,5 +1,14 @@
 import logging
-import lexianki_rs
+try:
+    import lexianki_rs
+except ModuleNotFoundError:
+    print(
+        "\n[ERROR] Rust extension 'lexianki_rs' is not installed.\n"
+        "Build it first:\n"
+        "  cd lexianki_rs && uv run maturin build --release -o ../dist_rs\n"
+        "  cd .. && uv pip install dist_rs/*.whl\n"
+    )
+    raise SystemExit(1)
 from src.processor import process_data
 
 # Configure logging to see output

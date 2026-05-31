@@ -23,8 +23,6 @@ def setup_nltk():
         ('corpora/stopwords', 'stopwords'),
         ('corpora/wordnet', 'wordnet'),
         ('corpora/omw-1.4', 'omw-1.4'),
-        ('taggers/averaged_perceptron_tagger', 'averaged_perceptron_tagger'),
-        ('taggers/averaged_perceptron_tagger_eng', 'averaged_perceptron_tagger_eng')
     ]
     
     for path, pkg in resources:
@@ -33,6 +31,17 @@ def setup_nltk():
         except (LookupError, OSError):
             logger.info(f"Downloading NLTK {pkg} corpus...")
             nltk.download(pkg, quiet=True)
+
+    for pkg, fallback in [
+        ('averaged_perceptron_tagger_eng', 'averaged_perceptron_tagger'),
+    ]:
+        try:
+            nltk.data.find(f'taggers/{pkg}')
+        except (LookupError, OSError):
+            try:
+                nltk.download(pkg, quiet=True)
+            except Exception:
+                nltk.download(fallback, quiet=True)
 
     _NLTK_SETUP_DONE = True
 
@@ -211,11 +220,13 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
             # 11. Deduplication & Context mapping
             if word_lemma not in unique_vocabulary:
                 truncated_context = lexianki_rs.truncate_context(original_sentence, token, 150)
-                unique_vocabulary[word_lemma] = {
+                entry = {
                     "context": truncated_context,
-                    "pos": wn_pos,  # Store for dictionary lookup
-                    "original_token": token
+                    "original_token": token,
                 }
+                if wn_pos is not None:
+                    entry["pos"] = wn_pos
+                unique_vocabulary[word_lemma] = entry
                 
     logger.info(f"NLP Processing complete. Found {len(unique_vocabulary)} unique target words after filtering.")
     
