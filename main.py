@@ -76,6 +76,8 @@ def main():
             logger.info(f"Added {len(new_words)} words to known_words.txt.")
         else:
             logger.warning("No valid words provided to --add-known.")
+        if args.url or args.file:
+            logger.warning("--add-known exits immediately; --url/--file will NOT be processed in this run.")
         sys.exit(0)
 
     if bool(args.url) == bool(args.file):

@@ -36,8 +36,16 @@ fn find_token_match(sentence: &str, target_token: &str) -> Option<(usize, usize)
         return None;
     }
 
-    let pattern = format!(r"(?i){}", regex::escape(target_token));
-    let token_re = Regex::new(&pattern).ok()?;
+    if target_token.chars().count() < 2 {
+        return None;
+    }
+
+    let escaped = regex::escape(target_token);
+    let pattern = format!(r"(?i){}", escaped);
+    let token_re = regex::RegexBuilder::new(&pattern)
+        .size_limit(1 << 18)
+        .build()
+        .ok()?;
 
     for mat in token_re.find_iter(sentence) {
         let prev_slice = sentence.get(..mat.start()).unwrap_or("");
