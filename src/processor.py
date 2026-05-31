@@ -109,7 +109,8 @@ def update_known_words(new_words_list: list, filepath: str = "known_words.txt"):
                 f.write(f"{word}\n")
         logger.info(f"Successfully updated {filepath}. Total known words: {len(sorted_words)}.")
         try:
-            _KNOWN_WORDS_CACHE[filepath] = (os.path.getmtime(filepath), set(sorted_words))
+            new_mtime = os.path.getmtime(filepath)
+            _KNOWN_WORDS_CACHE[filepath] = (new_mtime, set(sorted_words))
         except FileNotFoundError:
             _KNOWN_WORDS_CACHE.pop(filepath, None)
     except Exception as e:
@@ -177,6 +178,23 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
             else:
                 # Default to WordNet's noun behavior when POS is unknown.
                 word_lemma = lemmatizer.lemmatize(word_lower)  # defaults to noun
+
+            # Fast-path: if original token starts with uppercase AND it's not sentence-start, skip
+            sentence_start_tokens = {tokens[0].lower()} if tokens else set()
+            if token and token[0].isupper() and token.lower() not in sentence_start_tokens:
+                continue
+
+            if token and token[0].isupper():
+                # Guard: skip words whose primary WordNet sense is a proper entity
+                _proper_lexnames = frozenset({
+                    'noun.person',
+                    'noun.location',
+                    'noun.group',
+                    'noun.object',  # catches some country/city names
+                })
+                _primary_synsets = wordnet.synsets(word_lemma)
+                if _primary_synsets and _primary_synsets[0].lexname() in _proper_lexnames:
+                    continue
 
             # 8. Validation (post-lemmatization)
             if not lexianki_rs.is_valid_word(word_lemma):

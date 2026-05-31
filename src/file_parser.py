@@ -12,10 +12,14 @@ def _setup_nltk():
     if _NLTK_SETUP_DONE:
         return
 
-    try:
-        nltk.data.find("tokenizers/punkt")
-    except (LookupError, OSError):
-        nltk.download("punkt", quiet=True)
+    for resource, pkg in [
+        ("tokenizers/punkt_tab", "punkt_tab"),
+        ("tokenizers/punkt",     "punkt"),
+    ]:
+        try:
+            nltk.data.find(resource)
+        except (LookupError, OSError):
+            nltk.download(pkg, quiet=True)
 
     _NLTK_SETUP_DONE = True
 

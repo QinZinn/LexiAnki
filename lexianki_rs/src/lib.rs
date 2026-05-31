@@ -110,8 +110,11 @@ fn truncate_context(sentence: &str, target_token: &str, max_length: usize) -> Py
     let suffix_available = sentence_len.saturating_sub(end_char);
 
     let budget_for_context = max_length.saturating_sub(token_len);
-    let mut prefix_take = (budget_for_context / 2).min(prefix_available);
-    let mut suffix_take = (budget_for_context - prefix_take).min(suffix_available);
+    let left_ellipsis = if prefix_available > 0 { 3 } else { 0 };
+    let right_ellipsis = if suffix_available > 0 { 3 } else { 0 };
+    let adjusted_budget = budget_for_context.saturating_sub(left_ellipsis + right_ellipsis);
+    let mut prefix_take = (adjusted_budget / 2).min(prefix_available);
+    let mut suffix_take = (adjusted_budget - prefix_take).min(suffix_available);
 
     let mut left_needed;
     let mut right_needed;

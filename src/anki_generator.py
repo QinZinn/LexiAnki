@@ -1,6 +1,5 @@
 import logging
 import hashlib
-import time
 import genanki
 import regex as re
 
@@ -92,8 +91,7 @@ def generate_anki_deck(enriched_data: dict, output_filename: str = "English_News
     )
 
     # Create Anki Deck
-    deck_id_seed = f"{output_filename}_{time.time()}"
-    deck_id = int(hashlib.md5(deck_id_seed.encode()).hexdigest()[:8], 16)
+    deck_id = int(hashlib.md5(output_filename.encode()).hexdigest()[:8], 16)
     my_deck = genanki.Deck(
         deck_id,
         'English News Vocabulary'
