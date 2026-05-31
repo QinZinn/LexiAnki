@@ -66,7 +66,7 @@ fn find_token_match(sentence: &str, target_token: &str) -> Option<(usize, usize)
 }
 
 #[pymodule]
-fn newstoanki_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn lexianki_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(is_valid_word, m)?)?;
     m.add_function(wrap_pyfunction!(truncate_context, m)?)?;
     Ok(())

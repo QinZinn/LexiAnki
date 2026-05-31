@@ -5,6 +5,7 @@ import os
 from itertools import islice
 
 from src.scraper import fetch_article
+from src.file_parser import parse_local_file
 from src.processor import process_data, update_known_words
 from src.dictionary_lookup import lookup_definitions
 from src.anki_generator import generate_anki_deck
@@ -32,6 +33,11 @@ def main():
         "--url", 
         type=str, 
         help="The URL of the English news article to process."
+    )
+    parser.add_argument(
+        "--file",
+        type=str,
+        help="Path to a local .txt or .docx file to extract vocabulary from."
     )
     parser.add_argument(
         "--output", 
@@ -72,30 +78,36 @@ def main():
             logger.warning("No valid words provided to --add-known.")
         sys.exit(0)
 
-    # Validate --url if --add-known is not provided
-    if not args.url:
-        parser.error("--url is required unless --add-known is provided.")
+    if bool(args.url) == bool(args.file):
+        logger.error("Exactly one of --url or --file must be provided.")
+        sys.exit(2)
 
-    url = args.url
     output_filename = args.output
     
     logger.info("==================================================")
     logger.info("Starting Vocabulary Extraction Pipeline")
-    logger.info(f"Target URL: {url}")
+    if args.url:
+        logger.info(f"Target URL: {args.url}")
+    else:
+        logger.info(f"Target File: {args.file}")
     logger.info(f"Output File: {output_filename}")
     if args.max_words > 0:
         logger.info(f"Limit: {args.max_words} words")
     logger.info("==================================================")
 
     try:
-        # Phase 1: Scraper
-        logger.info("--- Phase 1: Scraping Article ---")
-        article_data = fetch_article(url)
+        if args.file:
+            logger.info("--- Phase 1: Parsing Local File ---")
+            article_data = parse_local_file(args.file)
+        else:
+            logger.info("--- Phase 1: Scraping Article ---")
+            article_data = fetch_article(args.url)
+
         if not article_data or not article_data.get('data'):
-            logger.error("Failed to scrape article or article is empty.")
+            logger.error("Failed to extract content or input is empty.")
             sys.exit(1)
 
-        logger.info(f"Article successfully scraped: '{article_data.get('title', 'Unknown Title')}'")
+        logger.info(f"Title: '{article_data.get('title', 'Unknown Title')}'")
         logger.info(f"Total sentences extracted: {len(article_data['data'])}")
 
         # Phase 2: Processor

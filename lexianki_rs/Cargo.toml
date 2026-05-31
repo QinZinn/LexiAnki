@@ -1,10 +1,10 @@
 [package]
-name = "newstoanki_rs"
+name = "lexianki_rs"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "newstoanki_rs"
+name = "lexianki_rs"
 crate-type = ["cdylib"]
 
 [dependencies]

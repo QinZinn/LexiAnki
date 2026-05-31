@@ -1,7 +1,7 @@
 import logging
 import os
 import nltk
-import newstoanki_rs
+import lexianki_rs
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
@@ -165,7 +165,7 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
             
             # 4. Fail-fast validation (pre-lemmatization): skip short/invalid tokens early to save CPU.
             # 5. Post-lemmatization validation: ensure the resulting base form still meets our constraints.
-            if not newstoanki_rs.is_valid_word(word_lower):
+            if not lexianki_rs.is_valid_word(word_lower):
                 continue
             
             # 6. Map POS tag for lemmatization
@@ -179,7 +179,7 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
                 word_lemma = lemmatizer.lemmatize(word_lower)  # defaults to noun
 
             # 8. Validation (post-lemmatization)
-            if not newstoanki_rs.is_valid_word(word_lemma):
+            if not lexianki_rs.is_valid_word(word_lemma):
                 continue
                 
             # 9. Stop-words removal
@@ -192,7 +192,7 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
                 
             # 11. Deduplication & Context mapping
             if word_lemma not in unique_vocabulary:
-                truncated_context = newstoanki_rs.truncate_context(original_sentence, token, 150)
+                truncated_context = lexianki_rs.truncate_context(original_sentence, token, 150)
                 unique_vocabulary[word_lemma] = {
                     "context": truncated_context,
                     "pos": wn_pos,  # Store for dictionary lookup

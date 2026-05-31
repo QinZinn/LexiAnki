@@ -1,12 +1,13 @@
-# NewsToAnki CLI
+# LexiAnki CLI
 
-A professional Python-based CLI tool designed to streamline language learning by automating the extraction of target vocabulary from news articles and generating ready-to-use Anki flashcards (.apkg).
+LexiAnki is a hybrid Python + Rust CLI tool for extracting target vocabulary from English news articles or local documents and generating ready-to-import Anki flashcards (.apkg).
 
 ![Anki Demo](assets/preview.png)
 
 ## 🌟 Key Features
 
 - **Smart Scraping**: Built-in support for **VnExpress (English)** and **BBC News**, featuring a robust retry mechanism with exponential backoff and randomized User-Agents to prevent blocking.
+- **Local File Parsing**: Extract vocabulary from `.txt` and `.docx` files using the same downstream NLP pipeline as web scraping.
 - **Context-Aware NLP**: 
   - **POS Tagging**: Utilizes `nltk.pos_tag` to understand the grammatical context of each word.
   - **Smart Lemmatization**: Performs accurate base-form reduction based on Part-of-Speech.
@@ -26,13 +27,21 @@ This project uses a Rust-based engine for high-performance text processing.
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/QinZinn/NewsToAnki.git
-   cd NewsToAnki
+   git clone https://github.com/QinZinn/LexiAnki.git
+   cd LexiAnki
    ```
 
 2. **Sync dependencies**:
    ```bash
    uv sync
+   ```
+
+3. **Build and install the Rust engine**:
+   ```bash
+   cd lexianki_rs
+   uv run maturin build --release -o ../dist_rs
+   cd ..
+   uv pip install dist_rs/*.whl
    ```
 
 ## 🚀 Usage
@@ -42,6 +51,11 @@ Run the tool from the repository root using `uv run`.
 ### Basic Command
 ```bash
 uv run main.py --url "https://e.vnexpress.net/news/news/education/vietnam-wins-four-gold-medals-at-international-chemistry-olympiad-4775486.html"
+```
+
+### Local File Input
+```bash
+uv run main.py --file "/path/to/article.docx"
 ```
 
 ### Custom Output & Export
@@ -68,7 +82,8 @@ Automate the update of `known_words.txt` to streamline your learning process:
   ```
 
 ### Arguments
-- `--url`: The URL of the news article to process (required unless using `--add-known`).
+- `--url`: The URL of the news article to process.
+- `--file`: Path to a local `.txt` or `.docx` file to process.
 - `--output`: (Optional) The name of the output `.apkg` file.
 - `--mark-known`: (Optional) Automatically add extracted words to `known_words.txt`.
 - `--add-known`: (Optional) A comma-separated list of words to add to `known_words.txt`.
@@ -86,7 +101,7 @@ uv run test_processor.py
 ## 📂 Project Structure
 
 ```text
-NewsToAnki/
+LexiAnki/
 ├── .github/workflows/       # CI/CD (GitHub Actions)
 ├── main.py                  # CLI Entry Point
 ├── test_processor.py        # Unit Tests
@@ -98,8 +113,9 @@ NewsToAnki/
 │   ├── processor.py         # POS Tagging, Rust-backed filtering/truncation
 │   ├── dictionary_lookup.py # Context-aware WordNet lookup
 │   ├── anki_generator.py    # .apkg Generation
+│   ├── file_parser.py       # Local .txt/.docx parsing to scraper-compatible schema
 │   └── exporter.py          # CSV Export Logic
-├── newstoanki_rs/           # High-Performance Rust Engine
+├── lexianki_rs/             # High-Performance Rust Engine
 ├── assets/                  # Documentation Assets
 └── README.md                # Project Documentation
 ```

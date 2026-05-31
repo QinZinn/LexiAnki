@@ -53,7 +53,7 @@ class BaseScraper:
         """
         Internal method to fetch URL with random User-Agent and retries.
         """
-        user_agent = self._ua.random if self._ua else "Mozilla/5.0 (compatible; NewsToAnki/1.0)"
+        user_agent = self._ua.random if self._ua else "Mozilla/5.0 (compatible; LexiAnki/1.0)"
         headers = {'User-Agent': user_agent}
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()

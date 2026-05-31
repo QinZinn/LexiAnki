@@ -27,7 +27,7 @@ jobs:
 
     - name: Build Rust extension
       run: |
-        cd newstoanki_rs
+        cd lexianki_rs
         uv run maturin build --release -o ../dist_rs
         cd ..
         uv pip install dist_rs/*.whl

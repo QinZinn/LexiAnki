@@ -185,6 +185,6 @@ cython_debug/
 *.apkg
 
 # Rust / Cargo
-/newstoanki_rs/target/
-/newstoanki_rs/Cargo.lock
+/lexianki_rs/target/
+/lexianki_rs/Cargo.lock
 *.pyd
