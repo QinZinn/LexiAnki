@@ -188,18 +188,12 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
                 # Default to WordNet's noun behavior when POS is unknown.
                 word_lemma = lemmatizer.lemmatize(word_lower)  # defaults to noun
 
-            # Fast-path: if original token starts with uppercase AND it's not sentence-start, skip
-            sentence_start_tokens = {tokens[0].lower()} if tokens else set()
-            if token and token[0].isupper() and token.lower() not in sentence_start_tokens:
-                continue
-
             if token and token[0].isupper():
-                # Guard: skip words whose primary WordNet sense is a proper entity
                 _proper_lexnames = frozenset({
                     'noun.person',
                     'noun.location',
                     'noun.group',
-                    'noun.object',  # catches some country/city names
+                    'noun.object',
                 })
                 _primary_synsets = wordnet.synsets(word_lemma)
                 if _primary_synsets and _primary_synsets[0].lexname() in _proper_lexnames:
