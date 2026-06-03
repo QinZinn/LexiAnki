@@ -37,7 +37,7 @@ def main():
     parser.add_argument(
         "--file",
         type=str,
-        help="Path to a local .txt or .docx file to extract vocabulary from."
+        help="Path to a local .txt, .docx, .pptx, or .pdf file to extract vocabulary from."
     )
     parser.add_argument(
         "--output", 
@@ -100,7 +100,11 @@ def main():
     try:
         if args.file:
             logger.info("--- Phase 1: Parsing Local File ---")
-            article_data = parse_local_file(args.file)
+            try:
+                article_data = parse_local_file(args.file)
+            except ValueError as e:
+                logger.error(str(e))
+                sys.exit(2)
         else:
             logger.info("--- Phase 1: Scraping Article ---")
             article_data = fetch_article(args.url)

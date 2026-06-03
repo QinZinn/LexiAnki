@@ -33,10 +33,36 @@ def parse_local_file(file_path: str) -> dict:
     elif ext == ".docx":
         document = docx.Document(file_path)
         raw_text = " ".join(p.text for p in document.paragraphs)
-    else:
-        raise ValueError(f"Unsupported file format: {ext}")
+    elif ext == ".pptx":
+        from pptx import Presentation
 
-    raw_text = (raw_text or "").strip()
+        presentation = Presentation(file_path)
+        texts = []
+        for slide in presentation.slides:
+            for shape in slide.shapes:
+                if not getattr(shape, "has_text_frame", False):
+                    continue
+                text_frame = shape.text_frame
+                if not text_frame:
+                    continue
+                for paragraph in text_frame.paragraphs:
+                    if paragraph.text:
+                        texts.append(paragraph.text)
+        raw_text = " ".join(texts)
+    elif ext == ".pdf":
+        import fitz
+
+        doc = fitz.open(file_path)
+        try:
+            raw_text = " ".join(page.get_text() for page in doc)
+        finally:
+            doc.close()
+    else:
+        raise ValueError(
+            f"Unsupported file format: {ext}. Supported: .txt, .docx, .pptx, .pdf"
+        )
+
+    raw_text = " ".join((raw_text or "").split())
     _setup_nltk()
 
     sentences = sent_tokenize(raw_text)
