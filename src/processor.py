@@ -188,6 +188,12 @@ def process_data(article_data: dict, known_words_file: str = "known_words.txt") 
                 # Default to WordNet's noun behavior when POS is unknown.
                 word_lemma = lemmatizer.lemmatize(word_lower)  # defaults to noun
 
+            # Heuristic Fast-Path: Catch proper adjectives (e.g., "American") that NLTK tags as JJ
+            # and WordNet categorizes as adjectives. This serves as a necessary defense-in-depth layer.
+            sentence_start_tokens = {tokens[0].lower()} if tokens else set()
+            if token and token[0].isupper() and token.lower() not in sentence_start_tokens:
+                continue
+
             if token and token[0].isupper():
                 _proper_lexnames = frozenset({
                     'noun.person',
