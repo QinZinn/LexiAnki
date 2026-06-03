@@ -19,29 +19,19 @@ def setup_nltk():
     if _NLTK_SETUP_DONE:
         return
 
-    resources = [
-        ('corpora/stopwords', 'stopwords'),
-        ('corpora/wordnet', 'wordnet'),
-        ('corpora/omw-1.4', 'omw-1.4'),
-    ]
-    
-    for path, pkg in resources:
+    for resource, pkg in [
+        ("taggers/averaged_perceptron_tagger_eng", "averaged_perceptron_tagger_eng"),
+        ("taggers/averaged_perceptron_tagger", "averaged_perceptron_tagger"),
+        ("tokenizers/punkt", "punkt"),
+        ("corpora/stopwords", "stopwords"),
+        ("corpora/wordnet", "wordnet"),
+        ("corpora/omw-1.4", "omw-1.4"),
+    ]:
         try:
-            nltk.data.find(path)
+            nltk.data.find(resource)
         except (LookupError, OSError):
             logger.info(f"Downloading NLTK {pkg} corpus...")
             nltk.download(pkg, quiet=True)
-
-    for pkg, fallback in [
-        ('averaged_perceptron_tagger_eng', 'averaged_perceptron_tagger'),
-    ]:
-        try:
-            nltk.data.find(f'taggers/{pkg}')
-        except (LookupError, OSError):
-            try:
-                nltk.download(pkg, quiet=True)
-            except Exception:
-                nltk.download(fallback, quiet=True)
 
     _NLTK_SETUP_DONE = True
 
