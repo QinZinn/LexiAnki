@@ -5,7 +5,7 @@ import os
 from itertools import islice
 
 from src.scraper import fetch_article
-from src.file_parser import parse_local_file
+from src.file_parser import FileParsingError, parse_local_file
 from src.processor import process_data, update_known_words
 from src.dictionary_lookup import lookup_definitions
 from src.anki_generator import generate_anki_deck
@@ -20,6 +20,18 @@ def setup_logging():
             logging.StreamHandler(sys.stdout)
         ]
     )
+
+
+def _format_exception(exc: Exception) -> str:
+    message = str(exc).strip()
+    if message:
+        return f"{exc.__class__.__name__}: {message}"
+    return exc.__class__.__name__
+
+
+def _exit_with_error(logger: logging.Logger, phase: str, message: str, exit_code: int = 1):
+    logger.error(f"{phase} failed: {message}")
+    sys.exit(exit_code)
 
 def main():
     setup_logging()
@@ -102,23 +114,34 @@ def main():
             logger.info("--- Phase 1: Parsing Local File ---")
             try:
                 article_data = parse_local_file(args.file)
-            except ValueError as e:
-                logger.error(str(e))
-                sys.exit(2)
+            except FileParsingError as exc:
+                _exit_with_error(logger, "Local file parsing", str(exc), 2)
         else:
             logger.info("--- Phase 1: Scraping Article ---")
             article_data = fetch_article(args.url)
 
         if not article_data or not article_data.get('data'):
-            logger.error("Failed to extract content or input is empty.")
-            sys.exit(1)
+            if args.file:
+                _exit_with_error(
+                    logger,
+                    "Local file parsing",
+                    "No readable text content was extracted from the input file.",
+                )
+            _exit_with_error(
+                logger,
+                "Article scraping",
+                "No readable article content was extracted from the URL.",
+            )
 
         logger.info(f"Title: '{article_data.get('title', 'Unknown Title')}'")
         logger.info(f"Total sentences extracted: {len(article_data['data'])}")
 
         # Phase 2: Processor
         logger.info("--- Phase 2: NLP Processing / Filtering ---")
-        processed_data = process_data(article_data)
+        try:
+            processed_data = process_data(article_data)
+        except Exception as exc:
+            _exit_with_error(logger, "NLP processing", _format_exception(exc))
         if not processed_data:
             logger.warning("No target vocabulary found. Exiting.")
             sys.exit(0)
@@ -132,7 +155,10 @@ def main():
 
         # Phase 3: Dictionary Lookup
         logger.info("--- Phase 3: Dictionary Lookup (Offline via WordNet) ---")
-        enriched_data = lookup_definitions(processed_data)
+        try:
+            enriched_data = lookup_definitions(processed_data)
+        except Exception as exc:
+            _exit_with_error(logger, "Dictionary lookup", _format_exception(exc))
         if not enriched_data:
             logger.warning("No definitions found for the extracted vocabulary. Exiting.")
             sys.exit(0)
@@ -146,7 +172,10 @@ def main():
 
         # Phase 4: Anki Generation
         logger.info("--- Phase 4: Generating Anki Deck ---")
-        deck_path = generate_anki_deck(enriched_data, output_filename)
+        try:
+            deck_path = generate_anki_deck(enriched_data, output_filename)
+        except Exception as exc:
+            _exit_with_error(logger, "Anki deck generation", _format_exception(exc))
         
         if os.path.exists(deck_path):
             logger.info("==================================================")
@@ -163,12 +192,16 @@ def main():
                 else:
                     logger.warning("No words to mark as known.")
         else:
-            logger.error("Failed to generate Anki package file.")
-            sys.exit(1)
+            _exit_with_error(
+                logger,
+                "Anki deck generation",
+                f"Output file was not created at '{deck_path}'.",
+            )
 
-    except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
-        sys.exit(1)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        _exit_with_error(logger, "Pipeline", _format_exception(exc))
 
 if __name__ == "__main__":
     main()

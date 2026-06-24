@@ -38,13 +38,38 @@ class BaseScraper:
     def __init__(self):
         try:
             self._ua = UserAgent()
-        except Exception:
+        except Exception as exc:
+            logger.warning(f"Failed to initialize fake user agent provider: {exc}")
             self._ua = None
+
+    @staticmethod
+    def _empty_article(url: str, title: str = "Unknown Title") -> dict:
+        return {
+            "url": url,
+            "title": title,
+            "data": [],
+        }
+
+    @staticmethod
+    def _extract_text(tag, fallback: str) -> str:
+        if tag is None:
+            return fallback
+        text = tag.get_text(strip=True)
+        return text or fallback
+
+    @staticmethod
+    def _join_paragraphs(paragraphs) -> str:
+        return " ".join(
+            paragraph.get_text(strip=True)
+            for paragraph in paragraphs
+            if paragraph.get_text(strip=True)
+        )
 
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type(requests.RequestException),
+        reraise=True,
         before_sleep=lambda retry_state: logging.getLogger(__name__).info(
             f"Retrying fetch ({retry_state.attempt_number}/3)..."
         )
@@ -67,19 +92,30 @@ class BaseScraper:
             url (str): The URL of the news article to scrape.
 
         Returns:
-            dict: Standardized article data structure or None if failed.
+            dict: Standardized article data structure. Failures return an empty article payload.
         """
         logger.info(f"Using {self.__class__.__name__} to fetch: {url}")
         try:
             response = self._get_response(url)
-        except Exception as e:
-            logger.error(f"Failed to fetch URL after retries {url}: {e}")
-            return None
+        except requests.RequestException as exc:
+            logger.error(
+                f"Network fetch failed for {url} with {self.__class__.__name__}: "
+                f"{exc.__class__.__name__}: {exc}"
+            )
+            return self._empty_article(url)
 
         soup = BeautifulSoup(response.content, 'html.parser')
         
         # Site-specific extraction
-        title, content = self.extract_title_and_content(soup)
+        try:
+            title, content = self.extract_title_and_content(soup)
+        except (AttributeError, TypeError, ValueError) as exc:
+            logger.error(
+                f"HTML parsing failed for {url} with {self.__class__.__name__}: "
+                f"{exc.__class__.__name__}: {exc}"
+            )
+            return self._empty_article(url)
+
         logger.info(f"Extracted title: {title}")
         
         if not content:
@@ -87,19 +123,32 @@ class BaseScraper:
                 f"No content extracted using {self.__class__.__name__}. "
                 "The site might be blocking scrapers or using a different structure."
             )
-            return {'url': url, 'title': title, 'data': []}
+            return self._empty_article(url, title)
 
         # Make sure tokenizers are available
-        setup_nltk()
+        try:
+            setup_nltk()
+            sentences = sent_tokenize(content)
+        except (LookupError, OSError, ValueError) as exc:
+            logger.error(
+                f"Sentence tokenization failed for {url}: "
+                f"{exc.__class__.__name__}: {exc}"
+            )
+            return self._empty_article(url, title)
 
-        # Tokenize into sentences
-        sentences = sent_tokenize(content)
         logger.info(f"Extracted {len(sentences)} sentences.")
 
         # Prepare data structure
         data = []
         for sentence in sentences:
-            words = word_tokenize(sentence)
+            try:
+                words = word_tokenize(sentence)
+            except (LookupError, OSError, ValueError) as exc:
+                logger.warning(
+                    f"Skipping sentence because tokenization failed for {url}: "
+                    f"{exc.__class__.__name__}: {exc}"
+                )
+                continue
             data.append({
                 "sentence": sentence,
                 "words": words
@@ -127,7 +176,7 @@ class VnExpressScraper(BaseScraper):
     def extract_title_and_content(self, soup: BeautifulSoup) -> tuple[str, str]:
         # Extract Title
         title_tag = soup.find('h1', class_='title-detail') or soup.find('title')
-        title = title_tag.text.strip() if title_tag else "Unknown VnExpress Title"
+        title = self._extract_text(title_tag, "Unknown VnExpress Title")
         
         # Extract Content
         # VnExpress usually puts content in <p> tags with class 'Normal' or 'description'
@@ -138,7 +187,7 @@ class VnExpressScraper(BaseScraper):
             # Fallback to generic <p> if specific classes aren't found
             paragraphs = soup.find_all('p')
             
-        content = " ".join([p.text.strip() for p in paragraphs if p.text.strip()])
+        content = self._join_paragraphs(paragraphs)
         return title, content
 
 class BBCScraper(BaseScraper):
@@ -148,7 +197,7 @@ class BBCScraper(BaseScraper):
     def extract_title_and_content(self, soup: BeautifulSoup) -> tuple[str, str]:
         # Extract Title
         title_tag = soup.find('h1') or soup.find('title')
-        title = title_tag.text.strip() if title_tag else "Unknown BBC Title"
+        title = self._extract_text(title_tag, "Unknown BBC Title")
         
         # BBC News often uses specific structures. This is a generic/skeleton approach.
         # Fallback to generic <article> then <p> tags.
@@ -158,7 +207,7 @@ class BBCScraper(BaseScraper):
         else:
             paragraphs = soup.find_all('p')
             
-        content = " ".join([p.text.strip() for p in paragraphs if p.text.strip()])
+        content = self._join_paragraphs(paragraphs)
         return title, content
 
 class GenericScraper(BaseScraper):
@@ -166,15 +215,11 @@ class GenericScraper(BaseScraper):
     Fallback scraper for unknown domains.
     """
     def extract_title_and_content(self, soup: BeautifulSoup) -> tuple[str, str]:
-        try:
-            title_tag = soup.find('title')
-            title = title_tag.text.strip() if title_tag else "Unknown Title"
-
-            paragraphs = soup.find_all('p')
-            content = " ".join([p.text.strip() for p in paragraphs if p.text.strip()])
-            return title, content
-        except Exception:
-            return "Unknown Title", ""
+        title_tag = soup.find('title')
+        title = self._extract_text(title_tag, "Unknown Title")
+        paragraphs = soup.find_all('p')
+        content = self._join_paragraphs(paragraphs)
+        return title, content
 
 def get_scraper_for_url(url: str) -> BaseScraper:
     """
