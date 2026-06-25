@@ -61,7 +61,15 @@ def is_valid_word(word: str) -> bool:
     return word.isalpha()
 
 
-def python_steps_1_6(sentence: str):
+PROPER_LEXNAMES = frozenset({
+    "noun.person",
+    "noun.location",
+    "noun.group",
+    "noun.object",
+})
+
+
+def python_steps_1_8(sentence: str):
     tokens = nltk.word_tokenize(sentence)
     tagged = nltk.pos_tag(tokens)
     out = []
@@ -81,15 +89,24 @@ def python_steps_1_6(sentence: str):
             lemma = lemmatizer.lemmatize(word_lower, pos=wn_pos)
         else:
             lemma = lemmatizer.lemmatize(word_lower)
+
+        if token and token[0].isupper() and word_lower not in sentence_start:
+            continue
+
+        if token and token[0].isupper():
+            synsets = wordnet.synsets(lemma)
+            if synsets and synsets[0].lexname() in PROPER_LEXNAMES:
+                continue
+
         out.append({"token": word_lower, "pos": tag, "lemma": lemma})
     return out
 
 
-def rust_steps_1_6(sentences):
+def rust_steps_1_8(sentences):
     root = Path(__file__).resolve().parents[1]
     payload = json.dumps({"sentences": sentences}).encode("utf-8")
     proc = subprocess.run(
-        ["cargo", "run", "--quiet", "--release", "--bin", "dump_steps_1_6"],
+        ["cargo", "run", "--quiet", "--release", "--bin", "dump_steps_1_8"],
         cwd=root,
         input=payload,
         stdout=subprocess.PIPE,
@@ -102,8 +119,8 @@ def rust_steps_1_6(sentences):
 def main():
     ensure_nltk()
 
-    py = [python_steps_1_6(s) for s in SENTENCES]
-    rs = rust_steps_1_6(SENTENCES)
+    py = [python_steps_1_8(s) for s in SENTENCES]
+    rs = rust_steps_1_8(SENTENCES)
 
     total = len(SENTENCES)
     token_jaccard_sum = 0.0
@@ -135,10 +152,25 @@ def main():
         print("  python:", p)
         print("  rust  :", r)
 
+    py_lemma_set = {item["lemma"] for sentence in py for item in sentence}
+    rs_lemma_set = {item["lemma"] for sentence in rs for item in sentence}
+    intersection = py_lemma_set & rs_lemma_set
+    union = py_lemma_set | rs_lemma_set
+    recall = len(intersection) / len(py_lemma_set) if py_lemma_set else 1.0
+    jaccard = len(intersection) / len(union) if union else 1.0
+
     print("---")
     print(f"AVG_TOKEN_JACCARD={token_jaccard_sum/total:.6f}")
     print(f"AVG_PAIR_JACCARD={pair_jaccard_sum/total:.6f}")
     print(f"LEMMA_ACCURACY={lemma_match/lemma_total:.6f}" if lemma_total else "LEMMA_ACCURACY=1.000000")
+    print(f"PYTHON_LEMMA_COUNT={len(py_lemma_set)}")
+    print(f"RUST_LEMMA_COUNT={len(rs_lemma_set)}")
+    print(f"INTERSECTION_COUNT={len(intersection)}")
+    print(f"UNION_COUNT={len(union)}")
+    print(f"LEMMA_SET_RECALL={recall:.6f}")
+    print(f"LEMMA_SET_JACCARD={jaccard:.6f}")
+    print(f"PYTHON_ONLY={sorted(py_lemma_set - rs_lemma_set)}")
+    print(f"RUST_ONLY={sorted(rs_lemma_set - py_lemma_set)}")
 
 
 if __name__ == "__main__":
