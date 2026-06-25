@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 
 import nltk
+from nltk.corpus import wordnet
+from nltk.stem import WordNetLemmatizer
 
 
 SENTENCES = [
@@ -24,10 +26,14 @@ def ensure_nltk():
         "averaged_perceptron_tagger",
         "punkt",
         "punkt_tab",
+        "wordnet",
+        "omw-1.4",
     ]:
         try:
             if resource.startswith("averaged"):
                 nltk.data.find("taggers/" + resource)
+            elif resource in ("wordnet", "omw-1.4"):
+                nltk.data.find("corpora/" + resource)
             else:
                 nltk.data.find("tokenizers/" + resource)
         except Exception:
@@ -37,6 +43,17 @@ def ensure_nltk():
 def coarse_pos(tag: str) -> str:
     return tag.split(":", 1)[0]
 
+def map_to_wordnet_pos(treebank_tag: str):
+    if treebank_tag.startswith("J"):
+        return wordnet.ADJ
+    if treebank_tag.startswith("V"):
+        return wordnet.VERB
+    if treebank_tag.startswith("N"):
+        return wordnet.NOUN
+    if treebank_tag.startswith("R"):
+        return wordnet.ADV
+    return None
+
 
 def is_valid_word(word: str) -> bool:
     if len(word) < 5:
@@ -44,11 +61,12 @@ def is_valid_word(word: str) -> bool:
     return word.isalpha()
 
 
-def python_steps_1_4(sentence: str):
+def python_steps_1_6(sentence: str):
     tokens = nltk.word_tokenize(sentence)
     tagged = nltk.pos_tag(tokens)
     out = []
     sentence_start = {tokens[0].lower()} if tokens else set()
+    lemmatizer = WordNetLemmatizer()
     for token, tag in tagged:
         tag = coarse_pos(tag)
         if tag in ("NNP", "NNPS"):
@@ -58,15 +76,20 @@ def python_steps_1_4(sentence: str):
             continue
         if not is_valid_word(word_lower):
             continue
-        out.append({"token": word_lower, "pos": tag})
+        wn_pos = map_to_wordnet_pos(tag)
+        if wn_pos:
+            lemma = lemmatizer.lemmatize(word_lower, pos=wn_pos)
+        else:
+            lemma = lemmatizer.lemmatize(word_lower)
+        out.append({"token": word_lower, "pos": tag, "lemma": lemma})
     return out
 
 
-def rust_steps_1_4(sentences):
+def rust_steps_1_6(sentences):
     root = Path(__file__).resolve().parents[1]
     payload = json.dumps({"sentences": sentences}).encode("utf-8")
     proc = subprocess.run(
-        ["cargo", "run", "--quiet", "--release", "--bin", "dump_steps_1_4"],
+        ["cargo", "run", "--quiet", "--release", "--bin", "dump_steps_1_6"],
         cwd=root,
         input=payload,
         stdout=subprocess.PIPE,
@@ -79,12 +102,14 @@ def rust_steps_1_4(sentences):
 def main():
     ensure_nltk()
 
-    py = [python_steps_1_4(s) for s in SENTENCES]
-    rs = rust_steps_1_4(SENTENCES)
+    py = [python_steps_1_6(s) for s in SENTENCES]
+    rs = rust_steps_1_6(SENTENCES)
 
     total = len(SENTENCES)
     token_jaccard_sum = 0.0
     pair_jaccard_sum = 0.0
+    lemma_match = 0
+    lemma_total = 0
 
     for idx, (p, r) in enumerate(zip(py, rs), 1):
         p_tokens = {x["token"] for x in p}
@@ -101,6 +126,11 @@ def main():
         pair_j = len(pair_inter) / len(pair_union) if pair_union else 1.0
         pair_jaccard_sum += pair_j
 
+        for px, rx in zip(p, r):
+            if px["token"] == rx["token"]:
+                lemma_total += 1
+                lemma_match += int(px["lemma"] == rx["lemma"])
+
         print(f"[{idx}] token_jaccard={token_j:.6f} pair_jaccard={pair_j:.6f}")
         print("  python:", p)
         print("  rust  :", r)
@@ -108,8 +138,8 @@ def main():
     print("---")
     print(f"AVG_TOKEN_JACCARD={token_jaccard_sum/total:.6f}")
     print(f"AVG_PAIR_JACCARD={pair_jaccard_sum/total:.6f}")
+    print(f"LEMMA_ACCURACY={lemma_match/lemma_total:.6f}" if lemma_total else "LEMMA_ACCURACY=1.000000")
 
 
 if __name__ == "__main__":
     sys.exit(main() or 0)
-
