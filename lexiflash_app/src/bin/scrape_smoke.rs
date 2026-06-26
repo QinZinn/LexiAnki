@@ -1,5 +1,7 @@
 #[path = "../article_content.rs"]
 mod article_content;
+#[path = "../text_utils.rs"]
+mod text_utils;
 #[path = "../url_scraper.rs"]
 mod url_scraper;
 
@@ -15,4 +17,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-

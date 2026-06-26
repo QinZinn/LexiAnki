@@ -1,0 +1,4 @@
+Researchers are building language tools that help learners notice useful vocabulary in context.
+The desktop version focuses on calm reading, reliable extraction, and a workflow that stays fast even when articles are long.
+Good defaults matter because a study tool should feel intentional instead of noisy.
+
