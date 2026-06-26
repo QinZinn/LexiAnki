@@ -1,6 +1,9 @@
+mod article_content;
 mod components;
-mod mock_data;
+mod file_parser;
 mod styles;
+mod text_utils;
+mod url_scraper;
 
 use dioxus::prelude::*;
 use dioxus_desktop::{Config, LogicalSize, WindowBuilder};
@@ -20,13 +23,10 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let decks = mock_data::mock_decks();
-    let stats = mock_data::mock_stats();
-
     rsx! {
         style { "{styles::APP_CSS}" }
         div { class: "app",
-            components::dashboard::Dashboard { decks, stats }
+            components::create_deck::CreateDeckScreen {}
         }
     }
 }

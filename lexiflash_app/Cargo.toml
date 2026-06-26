@@ -11,4 +11,5 @@ lexianki_nlp = { path = "../lexianki_nlp" }
 office_oxide = "0.1.2"
 pdf_oxide = "0.3.55"
 reqwest = { version = "0.11.27", default-features = false, features = ["blocking", "brotli", "deflate", "gzip", "rustls-tls"] }
+rfd = "0.15.4"
 scraper = "0.24.0"
