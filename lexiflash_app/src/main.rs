@@ -1,12 +1,19 @@
 mod article_content;
 mod components;
 mod file_parser;
+mod mock_data;
 mod styles;
 mod text_utils;
 mod url_scraper;
 
 use dioxus::prelude::*;
 use dioxus_desktop::{Config, LogicalSize, WindowBuilder};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Screen {
+    Dashboard,
+    CreateDeck,
+}
 
 fn main() {
     LaunchBuilder::desktop()
@@ -23,10 +30,24 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    let mut screen = use_signal(|| Screen::Dashboard);
+    let decks = mock_data::mock_decks();
+    let stats = mock_data::mock_stats();
+
     rsx! {
         style { "{styles::APP_CSS}" }
         div { class: "app",
-            components::create_deck::CreateDeckScreen {}
+            if matches!(screen(), Screen::Dashboard) {
+                components::dashboard::Dashboard {
+                    decks,
+                    stats,
+                    on_open_create_deck: move |_| screen.set(Screen::CreateDeck),
+                }
+            } else {
+                components::create_deck::CreateDeckScreen {
+                    on_show_dashboard: move |_| screen.set(Screen::Dashboard),
+                }
+            }
         }
     }
 }

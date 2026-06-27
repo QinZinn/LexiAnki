@@ -3,7 +3,11 @@ use dioxus::prelude::*;
 use crate::mock_data::{Deck, StudyStats};
 
 #[component]
-pub fn Dashboard(decks: Vec<Deck>, stats: StudyStats) -> Element {
+pub fn Dashboard(
+    decks: Vec<Deck>,
+    stats: StudyStats,
+    on_open_create_deck: EventHandler<()>,
+) -> Element {
     rsx! {
         div { class: "frame",
             div { class: "frame_inner",
@@ -13,6 +17,17 @@ pub fn Dashboard(decks: Vec<Deck>, stats: StudyStats) -> Element {
                         div { class: "brand_subtitle", "Dashboard" }
                     }
                     div { class: "actions",
+                        div { class: "pill_group",
+                            button { class: "pill pill_active",
+                                span { "Dashboard" }
+                            }
+                            button {
+                                class: "pill",
+                                onclick: move |_| on_open_create_deck.call(()),
+                                span { "Create Deck" }
+                                span { class: "pill_icon", "↗" }
+                            }
+                        }
                         div { class: "pill",
                             span { class: "pill_icon", "⌘" }
                             span { "Quick actions" }
@@ -59,11 +74,13 @@ pub fn Dashboard(decks: Vec<Deck>, stats: StudyStats) -> Element {
                                     div { class: "cta_inner",
                                         div { class: "cta_title", "Craft a deck with a clean input, clean intent." }
                                         div { class: "cta_copy",
-                                            "Paste an article, import a file, or start from a single sentence. This is a UI placeholder — no backend yet."
+                                            "Paste an article, import a file, or start from a single sentence. The pipeline is now wired into the desktop app."
                                         }
                                     }
                                     div {
-                                        div { class: "cta_button",
+                                        button {
+                                            class: "cta_button",
+                                            onclick: move |_| on_open_create_deck.call(()),
                                             span { "Create new deck" }
                                             span { class: "cta_trail", "↗" }
                                         }
@@ -119,4 +136,3 @@ fn DeckRow(deck: Deck) -> Element {
         }
     }
 }
-

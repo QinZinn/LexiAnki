@@ -23,7 +23,7 @@ struct DeckPreview {
 }
 
 #[component]
-pub fn CreateDeckScreen() -> Element {
+pub fn CreateDeckScreen(on_show_dashboard: EventHandler<()>) -> Element {
     let mut mode = use_signal(|| InputMode::Url);
     let mut url_input = use_signal(String::new);
     let mut selected_file = use_signal(|| None::<String>);
@@ -80,15 +80,27 @@ pub fn CreateDeckScreen() -> Element {
                         div { class: "brand_subtitle", "Create Deck" }
                     }
                     div { class: "actions",
-                        button {
-                            class: if matches!(mode(), InputMode::Url) { "pill pill_active" } else { "pill" },
-                            onclick: move |_| mode.set(InputMode::Url),
-                            span { "From URL" }
+                        div { class: "pill_group",
+                            button {
+                                class: "pill",
+                                onclick: move |_| on_show_dashboard.call(()),
+                                span { "Dashboard" }
+                            }
+                            button { class: "pill pill_active",
+                                span { "Create Deck" }
+                            }
                         }
-                        button {
-                            class: if matches!(mode(), InputMode::File) { "pill pill_active" } else { "pill" },
-                            onclick: move |_| mode.set(InputMode::File),
-                            span { "From File" }
+                        div { class: "pill_group",
+                            button {
+                                class: if matches!(mode(), InputMode::Url) { "pill pill_active" } else { "pill" },
+                                onclick: move |_| mode.set(InputMode::Url),
+                                span { "From URL" }
+                            }
+                            button {
+                                class: if matches!(mode(), InputMode::File) { "pill pill_active" } else { "pill" },
+                                onclick: move |_| mode.set(InputMode::File),
+                                span { "From File" }
+                            }
                         }
                     }
                 }
