@@ -102,8 +102,8 @@ pub fn save_deck(
 
             conn.execute(
                 "INSERT INTO review_state
-                 (vocabulary_entry_id, next_review_at, interval_days, ease_factor, review_count, lapses, state, last_reviewed_at)
-                 VALUES (?1, ?2, 0, 2.5, 0, 0, 'new', NULL)",
+                 (vocabulary_entry_id, due_at, stability, difficulty, reps, lapses, step, state, last_review_at)
+                 VALUES (?1, ?2, NULL, NULL, 0, 0, NULL, 'new', NULL)",
                 params![vocabulary_entry_id, created_at],
             )
             .with_context(|| {
@@ -195,7 +195,7 @@ pub fn load_study_snapshot(conn: &Connection) -> Result<StudySnapshot> {
 
     let due_today: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM review_state WHERE next_review_at <= CURRENT_TIMESTAMP",
+            "SELECT COUNT(*) FROM review_state WHERE due_at <= CURRENT_TIMESTAMP",
             [],
             |row| row.get(0),
         )
@@ -235,19 +235,6 @@ fn init_connection(conn: &Connection) -> Result<()> {
             UNIQUE (deck_id, lemma)
         );
 
-        CREATE TABLE IF NOT EXISTS review_state (
-            vocabulary_entry_id INTEGER PRIMARY KEY,
-            next_review_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            interval_days REAL NOT NULL DEFAULT 0 CHECK (interval_days >= 0),
-            ease_factor REAL NOT NULL DEFAULT 2.5 CHECK (ease_factor >= 1.3),
-            review_count INTEGER NOT NULL DEFAULT 0 CHECK (review_count >= 0),
-            lapses INTEGER NOT NULL DEFAULT 0 CHECK (lapses >= 0),
-            state TEXT NOT NULL DEFAULT 'new'
-                CHECK (state IN ('new', 'learning', 'review', 'relearning', 'suspended')),
-            last_reviewed_at TEXT,
-            FOREIGN KEY (vocabulary_entry_id) REFERENCES vocabulary_entries(id) ON DELETE CASCADE
-        );
-
         CREATE INDEX IF NOT EXISTS idx_decks_created_at
         ON decks(created_at DESC);
 
@@ -256,15 +243,96 @@ fn init_connection(conn: &Connection) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_vocab_lemma
         ON vocabulary_entries(lemma);
+        ",
+    )
+    .context("failed to initialize base SQLite schema")?;
 
-        CREATE INDEX IF NOT EXISTS idx_review_next_review_at
-        ON review_state(next_review_at);
+    ensure_review_state_schema(conn)?;
+    Ok(())
+}
+
+fn ensure_review_state_schema(conn: &Connection) -> Result<()> {
+    conn.execute_batch("DROP INDEX IF EXISTS idx_review_next_review_at;")
+        .context("failed to remove legacy review_state index")?;
+
+    if review_state_needs_rebuild(conn)? {
+        conn.execute_batch(
+            "
+            DROP INDEX IF EXISTS idx_review_due_at;
+            DROP INDEX IF EXISTS idx_review_state;
+            DROP TABLE IF EXISTS review_state;
+            ",
+        )
+        .context("failed to drop legacy review_state schema")?;
+    }
+
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS review_state (
+            vocabulary_entry_id INTEGER PRIMARY KEY,
+            due_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            stability REAL CHECK (stability IS NULL OR stability > 0),
+            difficulty REAL CHECK (
+                difficulty IS NULL OR (difficulty >= 1.0 AND difficulty <= 10.0)
+            ),
+            reps INTEGER NOT NULL DEFAULT 0 CHECK (reps >= 0),
+            lapses INTEGER NOT NULL DEFAULT 0 CHECK (lapses >= 0),
+            step INTEGER CHECK (step IS NULL OR step >= 0),
+            state TEXT NOT NULL DEFAULT 'new'
+                CHECK (state IN ('new', 'learning', 'review', 'relearning', 'suspended')),
+            last_review_at TEXT,
+            FOREIGN KEY (vocabulary_entry_id) REFERENCES vocabulary_entries(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_review_due_at
+        ON review_state(due_at);
 
         CREATE INDEX IF NOT EXISTS idx_review_state
         ON review_state(state);
         ",
     )
-    .context("failed to initialize SQLite schema")
+    .context("failed to initialize FSRS review_state schema")
+}
+
+fn review_state_needs_rebuild(conn: &Connection) -> Result<bool> {
+    let review_state_exists: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'review_state'",
+            [],
+            |row| row.get(0),
+        )
+        .context("failed to inspect review_state table presence")?;
+
+    if review_state_exists == 0 {
+        return Ok(false);
+    }
+
+    let mut stmt = conn
+        .prepare("PRAGMA table_info(review_state)")
+        .context("failed to inspect review_state columns")?;
+    let columns = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .context("failed to query review_state columns")?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .context("failed to collect review_state columns")?;
+
+    let has_legacy_columns = ["next_review_at", "interval_days", "ease_factor", "review_count", "last_reviewed_at"]
+        .iter()
+        .any(|column| columns.iter().any(|value| value == column));
+    let has_fsrs_columns = [
+        "due_at",
+        "stability",
+        "difficulty",
+        "reps",
+        "lapses",
+        "step",
+        "state",
+        "last_review_at",
+    ]
+    .iter()
+    .all(|column| columns.iter().any(|value| value == column));
+
+    Ok(has_legacy_columns || !has_fsrs_columns)
 }
 
 fn validate_source_type(source_type: &str) -> Result<()> {
@@ -369,7 +437,7 @@ mod tests {
     }
 
     #[test]
-    fn next_review_matches_vocabulary_entry_created_at() {
+    fn due_at_matches_vocabulary_entry_created_at() {
         let conn = init_test_db();
         let entries = vec![test_entry(
             "architecture",
@@ -388,9 +456,9 @@ mod tests {
         )
         .unwrap();
 
-        let (created_at, next_review_at): (String, String) = conn
+        let (created_at, due_at): (String, String) = conn
             .query_row(
-                "SELECT v.created_at, r.next_review_at
+                "SELECT v.created_at, r.due_at
                  FROM vocabulary_entries v
                  JOIN review_state r ON r.vocabulary_entry_id = v.id
                  WHERE v.deck_id = ?1",
@@ -399,7 +467,7 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(created_at, next_review_at);
+        assert_eq!(created_at, due_at);
     }
 
     #[test]
@@ -517,16 +585,30 @@ mod tests {
         )];
 
         let deck_id = save_deck(&conn, "Due Now", "file", "/tmp/due.txt", 1, &entries).unwrap();
-        let (interval_days, ease_factor, review_count, lapses, state, last_reviewed_at): (
-            f64,
-            f64,
+        let (
+            due_at,
+            created_at,
+            stability,
+            difficulty,
+            reps,
             i64,
             i64,
+            Option<i64>,
+            String,
+            Option<String>,
+        ): (
+            String,
+            String,
+            Option<f64>,
+            Option<f64>,
+            i64,
+            i64,
+            Option<i64>,
             String,
             Option<String>,
         ) = conn
             .query_row(
-                "SELECT r.interval_days, r.ease_factor, r.review_count, r.lapses, r.state, r.last_reviewed_at
+                "SELECT r.due_at, v.created_at, r.stability, r.difficulty, r.reps, r.lapses, r.step, r.state, r.last_review_at
                  FROM review_state r
                  JOIN vocabulary_entries v ON v.id = r.vocabulary_entry_id
                  WHERE v.deck_id = ?1",
@@ -539,17 +621,22 @@ mod tests {
                         row.get(3)?,
                         row.get(4)?,
                         row.get(5)?,
+                        row.get(6)?,
+                        row.get(7)?,
+                        row.get(8)?,
                     ))
                 },
             )
             .unwrap();
 
-        assert_eq!(interval_days, 0.0);
-        assert_eq!(ease_factor, 2.5);
-        assert_eq!(review_count, 0);
+        assert_eq!(due_at, created_at);
+        assert!(stability.is_none());
+        assert!(difficulty.is_none());
+        assert_eq!(reps, 0);
         assert_eq!(lapses, 0);
+        assert!(step.is_none());
         assert_eq!(state, "new");
-        assert!(last_reviewed_at.is_none());
+        assert!(last_review_at.is_none());
     }
 
     #[test]
@@ -587,7 +674,7 @@ mod tests {
 
         conn.execute(
             "UPDATE review_state
-             SET next_review_at = datetime('now', '+1 day')
+             SET due_at = datetime('now', '+1 day')
              WHERE vocabulary_entry_id = (
                  SELECT id FROM vocabulary_entries
                  WHERE deck_id = ?1
@@ -602,6 +689,56 @@ mod tests {
         assert_eq!(snapshot.learned_total, 2);
         assert_eq!(snapshot.streak_days, 0);
         assert_eq!(snapshot.due_today, 1);
+    }
+
+    #[test]
+    fn init_connection_rebuilds_legacy_review_state_schema() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "
+            PRAGMA foreign_keys = ON;
+
+            CREATE TABLE review_state (
+                vocabulary_entry_id INTEGER PRIMARY KEY,
+                next_review_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                interval_days REAL NOT NULL DEFAULT 0 CHECK (interval_days >= 0),
+                ease_factor REAL NOT NULL DEFAULT 2.5 CHECK (ease_factor >= 1.3),
+                review_count INTEGER NOT NULL DEFAULT 0 CHECK (review_count >= 0),
+                lapses INTEGER NOT NULL DEFAULT 0 CHECK (lapses >= 0),
+                state TEXT NOT NULL DEFAULT 'new',
+                last_reviewed_at TEXT
+            );
+
+            CREATE INDEX idx_review_next_review_at ON review_state(next_review_at);
+            ",
+        )
+        .unwrap();
+
+        init_connection(&conn).unwrap();
+
+        let mut stmt = conn.prepare("PRAGMA table_info(review_state)").unwrap();
+        let columns = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap();
+
+        for expected in [
+            "due_at",
+            "stability",
+            "difficulty",
+            "reps",
+            "lapses",
+            "step",
+            "state",
+            "last_review_at",
+        ] {
+            assert!(columns.iter().any(|column| column == expected));
+        }
+
+        for legacy in ["next_review_at", "interval_days", "ease_factor", "review_count", "last_reviewed_at"] {
+            assert!(!columns.iter().any(|column| column == legacy));
+        }
     }
 
     #[test]

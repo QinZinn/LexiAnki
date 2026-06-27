@@ -8,6 +8,7 @@ anyhow = "1.0.100"
 dioxus = { version = "=0.7.9", features = ["desktop", "launch"] }
 dioxus-desktop = "=0.7.9"
 dirs = "=5.0.1"
+fsrs = "=6.6.1"
 lexianki_nlp = { path = "../lexianki_nlp" }
 office_oxide = "0.1.2"
 pdf_oxide = "0.3.55"
