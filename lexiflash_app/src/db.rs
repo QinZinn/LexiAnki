@@ -19,6 +19,13 @@ pub struct DeckSummary {
     pub vocabulary_count: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StudySnapshot {
+    pub learned_total: i64,
+    pub streak_days: i64,
+    pub due_today: i64,
+}
+
 pub fn default_db_path() -> Result<PathBuf> {
     let base_dir = dirs::data_local_dir().context("could not resolve OS data directory")?;
     Ok(base_dir.join(APP_DIR_NAME).join(DB_FILE_NAME))
@@ -179,6 +186,26 @@ pub fn get_deck_entries(conn: &Connection, deck_id: i64) -> Result<Vec<Vocabular
 
     rows.collect::<rusqlite::Result<Vec<_>>>()
         .context("failed to fetch deck vocabulary entries")
+}
+
+pub fn load_study_snapshot(conn: &Connection) -> Result<StudySnapshot> {
+    let learned_total: i64 = conn
+        .query_row("SELECT COUNT(*) FROM vocabulary_entries", [], |row| row.get(0))
+        .context("failed to count vocabulary entries for study snapshot")?;
+
+    let due_today: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM review_state WHERE next_review_at <= CURRENT_TIMESTAMP",
+            [],
+            |row| row.get(0),
+        )
+        .context("failed to count due review items for study snapshot")?;
+
+    Ok(StudySnapshot {
+        learned_total,
+        streak_days: 0,
+        due_today,
+    })
 }
 
 fn init_connection(conn: &Connection) -> Result<()> {
@@ -435,6 +462,20 @@ mod tests {
     }
 
     #[test]
+    fn load_study_snapshot_returns_zeroes_for_new_database() {
+        let conn = init_test_db();
+        let snapshot = load_study_snapshot(&conn).unwrap();
+        assert_eq!(
+            snapshot,
+            StudySnapshot {
+                learned_total: 0,
+                streak_days: 0,
+                due_today: 0,
+            }
+        );
+    }
+
+    #[test]
     fn init_db_creates_file_on_disk() {
         let temp_dir = std::env::temp_dir().join(format!(
             "lexiflash-db-test-{}",
@@ -531,6 +572,36 @@ mod tests {
             )
             .unwrap();
         assert_eq!(review_count, 2);
+    }
+
+    #[test]
+    fn load_study_snapshot_counts_saved_entries_and_due_today() {
+        let conn = init_test_db();
+        let entries = vec![
+            test_entry("dataset", "Dataset context.", "datasets", Some(WordnetPos::Noun)),
+            test_entry("gracefully", "Gracefully context.", "gracefully", Some(WordnetPos::Adv)),
+        ];
+
+        let deck_id = save_deck(&conn, "Snapshot Deck", "file", "/tmp/snapshot.txt", 3, &entries)
+            .unwrap();
+
+        conn.execute(
+            "UPDATE review_state
+             SET next_review_at = datetime('now', '+1 day')
+             WHERE vocabulary_entry_id = (
+                 SELECT id FROM vocabulary_entries
+                 WHERE deck_id = ?1
+                 ORDER BY id DESC
+                 LIMIT 1
+             )",
+            params![deck_id],
+        )
+        .unwrap();
+
+        let snapshot = load_study_snapshot(&conn).unwrap();
+        assert_eq!(snapshot.learned_total, 2);
+        assert_eq!(snapshot.streak_days, 0);
+        assert_eq!(snapshot.due_today, 1);
     }
 
     #[test]

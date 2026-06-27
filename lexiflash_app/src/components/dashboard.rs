@@ -1,13 +1,75 @@
 use dioxus::prelude::*;
+use lexiflash_app::db::{self, DeckSummary, StudySnapshot};
 
-use crate::mock_data::{Deck, StudyStats};
+#[derive(Clone, PartialEq, Eq)]
+struct DashboardData {
+    decks: Vec<DeckSummary>,
+    stats: StudySnapshot,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+enum DashboardLoadState {
+    Loaded(DashboardData),
+    Error(String),
+}
 
 #[component]
-pub fn Dashboard(
-    decks: Vec<Deck>,
-    stats: StudyStats,
-    on_open_create_deck: EventHandler<()>,
-) -> Element {
+pub fn Dashboard(on_open_create_deck: EventHandler<()>) -> Element {
+    let dashboard_state = use_signal(load_dashboard_state);
+
+    let decks_hint = match dashboard_state() {
+        DashboardLoadState::Loaded(data) => format!("{} total", data.decks.len()),
+        DashboardLoadState::Error(_) => "Unavailable".to_string(),
+    };
+
+    let snapshot_body = match dashboard_state() {
+        DashboardLoadState::Loaded(data) => rsx! {
+            div { class: "stats_wrap",
+                Stat { value: data.stats.learned_total.to_string(), label: "Learned total" }
+                Stat { value: data.stats.streak_days.to_string(), label: "Day streak" }
+                Stat { value: data.stats.due_today.to_string(), label: "Due today" }
+            }
+        },
+        DashboardLoadState::Error(message) => rsx! {
+            div { class: "dashboard_panel_body",
+                div { class: "error_box",
+                    "Không thể đọc dữ liệu Dashboard từ SQLite. {message}"
+                }
+            }
+        },
+    };
+
+    let decks_body = match dashboard_state() {
+        DashboardLoadState::Loaded(data) => {
+            if data.decks.is_empty() {
+                rsx! {
+                    div { class: "empty_state deck_empty_state",
+                        div { class: "eyebrow", "Library ready" }
+                        div { class: "empty_title", "Chưa có deck nào trong thư viện cục bộ." }
+                        div { class: "empty_copy",
+                            "SQLite đã được khởi tạo đúng cách, nhưng hiện chưa có deck nào được lưu. Tạo deck đầu tiên của bạn để lấp đầy không gian này ở milestone tiếp theo."
+                        }
+                    }
+                }
+            } else {
+                rsx! {
+                    div { class: "deck_list",
+                        for deck in data.decks {
+                            DeckRow { deck }
+                        }
+                    }
+                }
+            }
+        }
+        DashboardLoadState::Error(message) => rsx! {
+            div { class: "dashboard_panel_body",
+                div { class: "error_box",
+                    "Không thể mở hoặc truy vấn database cục bộ. {message}"
+                }
+            }
+        },
+    };
+
     rsx! {
         div { class: "frame",
             div { class: "frame_inner",
@@ -43,27 +105,15 @@ pub fn Dashboard(
                     section { class: "grid",
                         Card {
                             title: "Study snapshot",
-                            hint: "Today",
+                            hint: "Local DB",
                             style: "grid-column: 1 / span 2;",
-                            children: rsx! {
-                                div { class: "stats_wrap",
-                                    Stat { value: "{stats.learned_total}", label: "Learned total" }
-                                    Stat { value: "{stats.streak_days}", label: "Day streak" }
-                                    Stat { value: "{stats.due_today}", label: "Due today" }
-                                }
-                            }
+                            children: snapshot_body
                         }
 
                         Card {
                             title: "Decks",
-                            hint: "{decks.len()} total",
-                            children: rsx! {
-                                div { class: "deck_list",
-                                    for deck in decks {
-                                        DeckRow { deck }
-                                    }
-                                }
-                            }
+                            hint: decks_hint,
+                            children: decks_body
                         }
 
                         Card {
@@ -95,6 +145,21 @@ pub fn Dashboard(
     }
 }
 
+fn load_dashboard_state() -> DashboardLoadState {
+    match load_dashboard_data() {
+        Ok(data) => DashboardLoadState::Loaded(data),
+        Err(err) => DashboardLoadState::Error(format!("{err:#}")),
+    }
+}
+
+fn load_dashboard_data() -> anyhow::Result<DashboardData> {
+    let db_path = db::default_db_path()?;
+    let conn = db::init_db(&db_path)?;
+    let decks = db::list_decks(&conn)?;
+    let stats = db::load_study_snapshot(&conn)?;
+    Ok(DashboardData { decks, stats })
+}
+
 #[component]
 fn Card(title: String, hint: String, children: Element, style: Option<String>) -> Element {
     rsx! {
@@ -121,7 +186,7 @@ fn Stat(value: String, label: String) -> Element {
 }
 
 #[component]
-fn DeckRow(deck: Deck) -> Element {
+fn DeckRow(deck: DeckSummary) -> Element {
     rsx! {
         div { class: "deck_row",
             div { class: "deck_meta",
@@ -129,10 +194,12 @@ fn DeckRow(deck: Deck) -> Element {
                 div { class: "deck_sub",
                     span { "{deck.created_at}" }
                     span { "·" }
-                    span { "{deck.vocab_count} words" }
+                    span { "{deck.vocabulary_count} words" }
+                    span { "·" }
+                    span { "{deck.sentence_count} sentences" }
                 }
             }
-            div { class: "chip", "Open" }
+            div { class: "chip", "{deck.source_type}" }
         }
     }
 }

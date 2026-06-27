@@ -225,6 +225,10 @@ body::before {
   gap: 10px;
 }
 
+.dashboard_panel_body {
+  padding: 0 18px 18px 18px;
+}
+
 .stat {
   border-radius: var(--radius-lg);
   background: rgba(0,0,0,0.28);
@@ -252,7 +256,7 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .deck_row {
@@ -587,6 +591,11 @@ body::before {
   font-size: 13px;
   line-height: 1.6;
   max-width: 48ch;
+}
+
+.deck_empty_state {
+  min-height: 240px;
+  justify-content: center;
 }
 
 @media (max-width: 980px) {
