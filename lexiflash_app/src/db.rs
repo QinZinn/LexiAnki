@@ -29,6 +29,15 @@ pub struct StudySnapshot {
     pub due_today: i64,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct DueCard {
+    pub vocabulary_entry_id: i64,
+    pub deck_id: i64,
+    pub deck_title: String,
+    pub entry: VocabularyEntry,
+    pub review_state: ReviewStateRecord,
+}
+
 pub fn default_db_path() -> Result<PathBuf> {
     let base_dir = dirs::data_local_dir().context("could not resolve OS data directory")?;
     Ok(base_dir.join(APP_DIR_NAME).join(DB_FILE_NAME))
@@ -198,7 +207,7 @@ pub fn load_study_snapshot(conn: &Connection) -> Result<StudySnapshot> {
 
     let due_today: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM review_state WHERE due_at <= CURRENT_TIMESTAMP",
+            "SELECT COUNT(*) FROM review_state WHERE datetime(due_at) <= CURRENT_TIMESTAMP",
             [],
             |row| row.get(0),
         )
@@ -209,6 +218,84 @@ pub fn load_study_snapshot(conn: &Connection) -> Result<StudySnapshot> {
         streak_days: 0,
         due_today,
     })
+}
+
+pub fn get_due_cards(conn: &Connection, deck_id: Option<i64>) -> Result<Vec<DueCard>> {
+    let query = "
+        SELECT
+            v.id,
+            v.deck_id,
+            d.title,
+            v.lemma,
+            v.context,
+            v.original_token,
+            v.wordnet_pos,
+            r.vocabulary_entry_id,
+            r.due_at,
+            r.stability,
+            r.difficulty,
+            r.reps,
+            r.lapses,
+            r.step,
+            r.state,
+            r.last_review_at
+        FROM vocabulary_entries v
+        JOIN decks d ON d.id = v.deck_id
+        JOIN review_state r ON r.vocabulary_entry_id = v.id
+        WHERE (?1 IS NULL OR v.deck_id = ?1)
+          AND datetime(r.due_at) <= CURRENT_TIMESTAMP
+        ORDER BY datetime(r.due_at) ASC, v.id ASC";
+    let mut stmt = conn.prepare(query).context("failed to prepare due card query")?;
+    let rows = stmt.query_map(params![deck_id], |row| {
+        let wordnet_pos = row
+            .get::<_, Option<String>>(6)?
+            .map(|value| wordnet_pos_from_sql(&value))
+            .transpose()?;
+
+        let due_at_raw: String = row.get(8)?;
+        let last_review_raw: Option<String> = row.get(15)?;
+        let due_at = parse_db_timestamp(&due_at_raw).map_err(|err| {
+            rusqlite::Error::FromSqlConversionFailure(8, rusqlite::types::Type::Text, Box::new(err))
+        })?;
+        let last_review_at = last_review_raw
+            .as_deref()
+            .map(parse_db_timestamp)
+            .transpose()
+            .map_err(|err| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    15,
+                    rusqlite::types::Type::Text,
+                    Box::new(err),
+                )
+            })?;
+        let state_raw: String = row.get(14)?;
+
+        Ok(DueCard {
+            vocabulary_entry_id: row.get(0)?,
+            deck_id: row.get(1)?,
+            deck_title: row.get(2)?,
+            entry: VocabularyEntry {
+                lemma: row.get(3)?,
+                context: row.get(4)?,
+                original_token: row.get(5)?,
+                wordnet_pos,
+            },
+            review_state: ReviewStateRecord {
+                vocabulary_entry_id: row.get(7)?,
+                due_at,
+                stability: row.get(9)?,
+                difficulty: row.get(10)?,
+                reps: row.get(11)?,
+                lapses: row.get(12)?,
+                step: row.get(13)?,
+                state: review_state_kind_from_sql(&state_raw)?,
+                last_review_at,
+            },
+        })
+    })?;
+
+    rows.collect::<rusqlite::Result<Vec<_>>>()
+        .context("failed to fetch due cards")
 }
 
 pub fn update_review_state(
@@ -498,7 +585,7 @@ fn wordnet_pos_from_sql(value: &str) -> rusqlite::Result<WordnetPos> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fsrs_scheduler::{ReviewStateKind, ScheduledReviewState};
+    use crate::fsrs_scheduler::{ReviewRating, ReviewStateKind, ScheduledReviewState, schedule_review_at};
     use chrono::TimeZone;
     use rusqlite::OptionalExtension;
 
@@ -812,6 +899,28 @@ mod tests {
     }
 
     #[test]
+    fn reviewing_due_card_reduces_due_today_count() {
+        let conn = init_test_db();
+        let entries = vec![
+            test_entry("dataset", "Dataset context.", "datasets", Some(WordnetPos::Noun)),
+            test_entry("gracefully", "Gracefully context.", "gracefully", Some(WordnetPos::Adv)),
+        ];
+        save_deck(&conn, "Session Deck", "file", "/tmp/session.txt", 2, &entries).unwrap();
+
+        let before = load_study_snapshot(&conn).unwrap();
+        assert_eq!(before.due_today, 2);
+
+        let first_due = get_due_cards(&conn, None).unwrap().remove(0);
+        let review_now = Utc.with_ymd_and_hms(2026, 6, 27, 12, 0, 0).unwrap();
+        let scheduled = schedule_review_at(&first_due.review_state, ReviewRating::Good, review_now)
+            .unwrap();
+        update_review_state(&conn, first_due.vocabulary_entry_id, &scheduled).unwrap();
+
+        let after = load_study_snapshot(&conn).unwrap();
+        assert_eq!(after.due_today, 1);
+    }
+
+    #[test]
     fn review_state_exists_for_each_saved_entry() {
         let conn = init_test_db();
         let entries = vec![
@@ -861,6 +970,37 @@ mod tests {
         assert_eq!(snapshot.learned_total, 2);
         assert_eq!(snapshot.streak_days, 0);
         assert_eq!(snapshot.due_today, 1);
+    }
+
+    #[test]
+    fn get_due_cards_returns_only_cards_due_now() {
+        let conn = init_test_db();
+        let entries = vec![
+            test_entry("dataset", "Dataset context.", "datasets", Some(WordnetPos::Noun)),
+            test_entry("gracefully", "Gracefully context.", "gracefully", Some(WordnetPos::Adv)),
+        ];
+
+        let deck_id = save_deck(&conn, "Review Deck", "file", "/tmp/review.txt", 2, &entries)
+            .unwrap();
+
+        conn.execute(
+            "UPDATE review_state
+             SET due_at = datetime('now', '+2 day')
+             WHERE vocabulary_entry_id = (
+                 SELECT id FROM vocabulary_entries
+                 WHERE deck_id = ?1
+                 ORDER BY id DESC
+                 LIMIT 1
+             )",
+            params![deck_id],
+        )
+        .unwrap();
+
+        let due_cards = get_due_cards(&conn, None).unwrap();
+        assert_eq!(due_cards.len(), 1);
+        assert_eq!(due_cards[0].deck_id, deck_id);
+        assert_eq!(due_cards[0].entry.lemma, "dataset");
+        assert_eq!(due_cards[0].review_state.state, ReviewStateKind::New);
     }
 
     #[test]

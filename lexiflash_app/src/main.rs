@@ -12,6 +12,7 @@ use dioxus_desktop::{Config, LogicalSize, WindowBuilder};
 enum Screen {
     Dashboard,
     CreateDeck,
+    ReviewSession(Option<i64>),
 }
 
 fn main() {
@@ -34,14 +35,24 @@ fn App() -> Element {
     rsx! {
         style { "{styles::APP_CSS}" }
         div { class: "app",
-            if matches!(screen(), Screen::Dashboard) {
-                components::dashboard::Dashboard {
-                    on_open_create_deck: move |_| screen.set(Screen::CreateDeck),
-                }
-            } else {
-                components::create_deck::CreateDeckScreen {
-                    on_show_dashboard: move |_| screen.set(Screen::Dashboard),
-                }
+            match screen() {
+                Screen::Dashboard => rsx! {
+                    components::dashboard::Dashboard {
+                        on_open_create_deck: move |_| screen.set(Screen::CreateDeck),
+                        on_start_session: move |_| screen.set(Screen::ReviewSession(None)),
+                    }
+                },
+                Screen::CreateDeck => rsx! {
+                    components::create_deck::CreateDeckScreen {
+                        on_show_dashboard: move |_| screen.set(Screen::Dashboard),
+                    }
+                },
+                Screen::ReviewSession(deck_id) => rsx! {
+                    components::review_session::ReviewSessionScreen {
+                        deck_id,
+                        on_show_dashboard: move |_| screen.set(Screen::Dashboard),
+                    }
+                },
             }
         }
     }

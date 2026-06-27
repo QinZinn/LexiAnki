@@ -14,7 +14,7 @@ enum DashboardLoadState {
 }
 
 #[component]
-pub fn Dashboard(on_open_create_deck: EventHandler<()>) -> Element {
+pub fn Dashboard(on_open_create_deck: EventHandler<()>, on_start_session: EventHandler<()>) -> Element {
     let dashboard_state = use_signal(load_dashboard_state);
 
     let decks_hint = match dashboard_state() {
@@ -47,7 +47,7 @@ pub fn Dashboard(on_open_create_deck: EventHandler<()>) -> Element {
                         div { class: "eyebrow", "Library ready" }
                         div { class: "empty_title", "Chưa có deck nào trong thư viện cục bộ." }
                         div { class: "empty_copy",
-                            "SQLite đã được khởi tạo đúng cách, nhưng hiện chưa có deck nào được lưu. Tạo deck đầu tiên của bạn để lấp đầy không gian này ở milestone tiếp theo."
+                            "SQLite đã được khởi tạo đúng cách, nhưng hiện chưa có deck nào được lưu. Tạo deck đầu tiên của bạn để bắt đầu thư viện học tập và mở các phiên ôn bài FSRS."
                         }
                     }
                 }
@@ -94,7 +94,9 @@ pub fn Dashboard(on_open_create_deck: EventHandler<()>) -> Element {
                             span { class: "pill_icon", "⌘" }
                             span { "Quick actions" }
                         }
-                        div { class: "pill",
+                        button {
+                            class: "pill",
+                            onclick: move |_| on_start_session.call(()),
                             span { "Start session" }
                             span { class: "pill_icon", "↗" }
                         }
