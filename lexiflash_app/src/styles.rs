@@ -14,6 +14,8 @@ pub const APP_CSS: &str = r#"
   --radius-xl: 28px;
   --radius-lg: 22px;
   --radius-md: 18px;
+  --motion-fast: 180ms;
+  --motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * { box-sizing: border-box; }
@@ -128,7 +130,7 @@ body::before {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
   color: rgba(255,255,255,0.88);
   user-select: none;
-  transition: transform 700ms cubic-bezier(0.32,0.72,0,1), background 700ms cubic-bezier(0.32,0.72,0,1), border-color 700ms cubic-bezier(0.32,0.72,0,1);
+  transition: transform var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
 
 .pill_group {
@@ -158,7 +160,7 @@ body::before {
   align-items: center;
   justify-content: center;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-  transition: transform 700ms cubic-bezier(0.32,0.72,0,1);
+  transition: transform var(--motion-fast) var(--motion-ease);
 }
 
 .pill:hover .pill_icon {
@@ -202,7 +204,7 @@ body::before {
   border: 1px solid rgba(255,255,255,0.08);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
   overflow: hidden;
-  transition: transform 700ms cubic-bezier(0.32,0.72,0,1), border-color 700ms cubic-bezier(0.32,0.72,0,1), background 700ms cubic-bezier(0.32,0.72,0,1);
+  transition: transform var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
 }
 
 .card:hover {
@@ -384,7 +386,7 @@ body::before {
   border: 1px solid rgba(255,255,255,0.16);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
   color: rgba(255,255,255,0.92);
-  transition: transform 700ms cubic-bezier(0.32,0.72,0,1), background 700ms cubic-bezier(0.32,0.72,0,1), border-color 700ms cubic-bezier(0.32,0.72,0,1);
+  transition: transform var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
   user-select: none;
   appearance: none;
   cursor: pointer;
@@ -410,7 +412,7 @@ body::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform 700ms cubic-bezier(0.32,0.72,0,1);
+  transition: transform var(--motion-fast) var(--motion-ease);
 }
 
 .cta_button:hover .cta_trail {
@@ -669,7 +671,7 @@ body::before {
   background:
     radial-gradient(700px circle at 24% 18%, rgba(132, 92, 255, 0.16), transparent 50%),
     linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
-  transition: transform 700ms cubic-bezier(0.32,0.72,0,1), border-color 700ms cubic-bezier(0.32,0.72,0,1), background 700ms cubic-bezier(0.32,0.72,0,1);
+  transition: transform var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
 }
 
 .review_card_panel:hover {
@@ -757,7 +759,7 @@ body::before {
   padding: 14px 14px;
   font: inherit;
   cursor: pointer;
-  transition: transform 700ms cubic-bezier(0.32,0.72,0,1), border-color 700ms cubic-bezier(0.32,0.72,0,1), background 700ms cubic-bezier(0.32,0.72,0,1);
+  transition: transform var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
 }
 
 .rating_button:hover {
