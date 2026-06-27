@@ -42,28 +42,41 @@ pub fn CreateDeckScreen(on_show_dashboard: EventHandler<()>) -> Element {
     let mut result = use_signal(|| None::<DeckPreview>);
     let mut error = use_signal(|| None::<String>);
     let mut save_notice = use_signal(|| None::<SaveNotice>);
+    let mut is_processing_url = use_signal(|| false);
 
     let mut process_url = {
         move || {
             error.set(None);
             result.set(None);
             save_notice.set(None);
+            is_processing_url.set(true);
 
-            match process_from_url(&url_input()) {
-                Ok(CreateDeckResult::Saved { preview, deck_id }) => {
-                    let vocab_count = preview.vocabulary.len();
-                    result.set(Some(preview));
-                    save_notice.set(Some(SaveNotice::Success {
-                        deck_id,
-                        message: format!("Đã lưu deck vào SQLite — {vocab_count} từ vựng."),
-                    }));
+            let url = url_input();
+            let mut result = result;
+            let mut error = error;
+            let mut save_notice = save_notice;
+            let mut is_processing_url = is_processing_url;
+
+            spawn(async move {
+                let outcome = process_from_url(&url).await;
+                is_processing_url.set(false);
+
+                match outcome {
+                    Ok(CreateDeckResult::Saved { preview, deck_id }) => {
+                        let vocab_count = preview.vocabulary.len();
+                        result.set(Some(preview));
+                        save_notice.set(Some(SaveNotice::Success {
+                            deck_id,
+                            message: format!("Đã lưu deck vào SQLite — {vocab_count} từ vựng."),
+                        }));
+                    }
+                    Ok(CreateDeckResult::SaveFailed { preview, message }) => {
+                        result.set(Some(preview));
+                        save_notice.set(Some(SaveNotice::Error(message)));
+                    }
+                    Err(err) => error.set(Some(err.to_string())),
                 }
-                Ok(CreateDeckResult::SaveFailed { preview, message }) => {
-                    result.set(Some(preview));
-                    save_notice.set(Some(SaveNotice::Error(message)));
-                }
-                Err(err) => error.set(Some(err.to_string())),
-            }
+            });
         }
     };
 
@@ -173,8 +186,11 @@ pub fn CreateDeckScreen(on_show_dashboard: EventHandler<()>) -> Element {
                                         div { class: "action_row",
                                             button {
                                                 class: "cta_button",
+                                                disabled: is_processing_url(),
                                                 onclick: move |_| process_url(),
-                                                span { "Extract from URL" }
+                                                span {
+                                                    if is_processing_url() { "Extracting..." } else { "Extract from URL" }
+                                                }
                                                 span { class: "cta_trail", "↗" }
                                             }
                                         }
@@ -284,13 +300,13 @@ pub fn CreateDeckScreen(on_show_dashboard: EventHandler<()>) -> Element {
     }
 }
 
-fn process_from_url(url: &str) -> anyhow::Result<CreateDeckResult> {
+async fn process_from_url(url: &str) -> anyhow::Result<CreateDeckResult> {
     let trimmed = url.trim();
     if trimmed.is_empty() {
         anyhow::bail!("URL không được để trống.");
     }
 
-    let article = url_scraper::scrape_url(trimmed)?;
+    let article = url_scraper::scrape_url(trimmed).await?;
     build_preview_and_save(article, "url")
 }
 

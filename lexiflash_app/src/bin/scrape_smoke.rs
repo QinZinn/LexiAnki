@@ -5,9 +5,10 @@ mod text_utils;
 #[path = "../url_scraper.rs"]
 mod url_scraper;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let url = "https://www.bbc.com/news/articles/c70vqwengxno";
-    let article = url_scraper::scrape_url(url)?;
+    let article = url_scraper::scrape_url(url).await?;
 
     println!("TITLE: {}", article.title);
     println!("SENTENCE_COUNT: {}", article.sentences.len());

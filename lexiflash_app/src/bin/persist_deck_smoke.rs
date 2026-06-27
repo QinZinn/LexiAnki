@@ -11,13 +11,14 @@ use lexiflash_app::db;
 use lexianki_nlp::LexiankiNlp;
 use std::path::Path;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let mode = args.next().unwrap_or_else(|| "file".to_string());
     let source = args.next().unwrap_or_else(|| "examples/sample_article.txt".to_string());
 
     let article = match mode.as_str() {
-        "url" => url_scraper::scrape_url(&source)?,
+        "url" => url_scraper::scrape_url(&source).await?,
         "file" => file_parser::parse_file(Path::new(&source))?,
         _ => {
             return Err(format!("unsupported mode '{mode}', expected 'file' or 'url'").into());

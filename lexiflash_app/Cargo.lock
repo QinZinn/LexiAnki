@@ -3479,6 +3479,7 @@ dependencies = [
  "rfd 0.15.4",
  "rusqlite",
  "scraper",
+ "tokio",
 ]
 
 [[package]]
