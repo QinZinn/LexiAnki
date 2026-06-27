@@ -22,8 +22,8 @@ html, body {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  overflow: auto;
   color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "SF Pro Display", "Geist", "Satoshi", sans-serif;
   letter-spacing: -0.01em;
@@ -52,13 +52,14 @@ body::before {
 }
 
 .app {
-  height: 100%;
+  min-height: 100%;
   width: 100%;
   padding: 26px;
+  overflow-y: auto;
 }
 
 .frame {
-  height: 100%;
+  min-height: calc(100vh - 52px);
   border-radius: calc(var(--radius-xl) + 6px);
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.09);
@@ -66,10 +67,14 @@ body::before {
     0 18px 60px rgba(0,0,0,0.55),
     inset 0 1px 0 rgba(255,255,255,0.08);
   padding: 10px;
+  display: flex;
 }
 
 .frame_inner {
-  height: 100%;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   border-radius: var(--radius-xl);
   background:
     radial-gradient(1200px circle at 30% 10%, rgba(255,255,255,0.06), transparent 52%),
@@ -161,16 +166,19 @@ body::before {
 }
 
 .content {
-  height: calc(100% - 76px);
+  flex: 1;
+  min-height: 0;
   padding: 10px 14px 16px 14px;
+  overflow-y: auto;
 }
 
 .grid {
-  height: 100%;
+  min-height: 100%;
   display: grid;
   grid-template-columns: 1.6fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: auto minmax(380px, 1fr);
   gap: 14px;
+  align-content: start;
 }
 
 .card_shell {
@@ -258,11 +266,13 @@ body::before {
 .deck_list {
   flex: 1;
   min-height: 0;
+  max-height: 480px;
   padding: 0 10px 12px 10px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .deck_row {
