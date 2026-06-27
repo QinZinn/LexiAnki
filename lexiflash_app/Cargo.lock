@@ -3467,6 +3467,7 @@ name = "lexiflash_app"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "dioxus",
  "dioxus-desktop",
  "dirs 5.0.1",

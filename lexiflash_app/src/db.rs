@@ -1,9 +1,12 @@
 use anyhow::{Context, Result, bail};
+use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
 use lexianki_nlp::{VocabularyEntry, WordnetPos};
 use rusqlite::{Connection, params};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+
+use crate::fsrs_scheduler::{ReviewStateKind, ReviewStateRecord, ScheduledReviewState};
 
 const APP_DIR_NAME: &str = "lexiflash";
 const DB_FILE_NAME: &str = "lexiflash.db";
@@ -208,6 +211,50 @@ pub fn load_study_snapshot(conn: &Connection) -> Result<StudySnapshot> {
     })
 }
 
+pub fn update_review_state(
+    conn: &Connection,
+    vocabulary_entry_id: i64,
+    new_state: &ScheduledReviewState,
+) -> Result<()> {
+    conn.execute(
+        "UPDATE review_state
+         SET due_at = ?2,
+             stability = ?3,
+             difficulty = ?4,
+             reps = ?5,
+             lapses = ?6,
+             step = ?7,
+             state = ?8,
+             last_review_at = ?9
+         WHERE vocabulary_entry_id = ?1",
+        params![
+            vocabulary_entry_id,
+            format_db_timestamp(new_state.due_at),
+            new_state.stability,
+            new_state.difficulty,
+            new_state.reps,
+            new_state.lapses,
+            new_state.step,
+            review_state_kind_to_sql(new_state.state),
+            format_db_timestamp(new_state.last_review_at),
+        ],
+    )
+    .with_context(|| format!("failed to update review_state for vocabulary entry {vocabulary_entry_id}"))?;
+
+    Ok(())
+}
+
+pub fn get_review_state(conn: &Connection, vocabulary_entry_id: i64) -> Result<ReviewStateRecord> {
+    conn.query_row(
+        "SELECT vocabulary_entry_id, due_at, stability, difficulty, reps, lapses, step, state, last_review_at
+         FROM review_state
+         WHERE vocabulary_entry_id = ?1",
+        params![vocabulary_entry_id],
+        review_state_from_row,
+    )
+    .with_context(|| format!("failed to fetch review_state for vocabulary entry {vocabulary_entry_id}"))
+}
+
 fn init_connection(conn: &Connection) -> Result<()> {
     conn.execute_batch(
         "
@@ -343,6 +390,84 @@ fn validate_source_type(source_type: &str) -> Result<()> {
     }
 }
 
+fn parse_db_timestamp(value: &str) -> io::Result<DateTime<Utc>> {
+    if let Ok(parsed) = DateTime::parse_from_rfc3339(value) {
+        return Ok(parsed.with_timezone(&Utc));
+    }
+
+    let naive = NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S").map_err(|err| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("invalid SQLite timestamp '{value}': {err}"),
+        )
+    })?;
+    Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc))
+}
+
+fn format_db_timestamp(value: DateTime<Utc>) -> String {
+    value.to_rfc3339_opts(SecondsFormat::Secs, true)
+}
+
+fn review_state_kind_to_sql(value: ReviewStateKind) -> &'static str {
+    match value {
+        ReviewStateKind::New => "new",
+        ReviewStateKind::Learning => "learning",
+        ReviewStateKind::Review => "review",
+        ReviewStateKind::Relearning => "relearning",
+        ReviewStateKind::Suspended => "suspended",
+    }
+}
+
+fn review_state_kind_from_sql(value: &str) -> rusqlite::Result<ReviewStateKind> {
+    match value {
+        "new" => Ok(ReviewStateKind::New),
+        "learning" => Ok(ReviewStateKind::Learning),
+        "review" => Ok(ReviewStateKind::Review),
+        "relearning" => Ok(ReviewStateKind::Relearning),
+        "suspended" => Ok(ReviewStateKind::Suspended),
+        _ => Err(rusqlite::Error::FromSqlConversionFailure(
+            7,
+            rusqlite::types::Type::Text,
+            Box::new(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid review state value in database: '{value}'"),
+            )),
+        )),
+    }
+}
+
+fn review_state_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ReviewStateRecord> {
+    let due_at_raw: String = row.get(1)?;
+    let last_review_raw: Option<String> = row.get(8)?;
+
+    let due_at = parse_db_timestamp(&due_at_raw).map_err(|err| {
+        rusqlite::Error::FromSqlConversionFailure(1, rusqlite::types::Type::Text, Box::new(err))
+    })?;
+    let last_review_at = last_review_raw
+        .as_deref()
+        .map(parse_db_timestamp)
+        .transpose()
+        .map_err(|err| {
+            rusqlite::Error::FromSqlConversionFailure(
+                8,
+                rusqlite::types::Type::Text,
+                Box::new(err),
+            )
+        })?;
+
+    Ok(ReviewStateRecord {
+        vocabulary_entry_id: row.get(0)?,
+        due_at,
+        stability: row.get(2)?,
+        difficulty: row.get(3)?,
+        reps: row.get(4)?,
+        lapses: row.get(5)?,
+        step: row.get(6)?,
+        state: review_state_kind_from_sql(&row.get::<_, String>(7)?)?,
+        last_review_at,
+    })
+}
+
 fn wordnet_pos_to_sql(value: Option<WordnetPos>) -> Option<&'static str> {
     match value {
         Some(WordnetPos::Noun) => Some("NOUN"),
@@ -373,6 +498,8 @@ fn wordnet_pos_from_sql(value: &str) -> rusqlite::Result<WordnetPos> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fsrs_scheduler::{ReviewStateKind, ScheduledReviewState};
+    use chrono::TimeZone;
     use rusqlite::OptionalExtension;
 
     fn test_entry(
@@ -591,11 +718,10 @@ mod tests {
             stability,
             difficulty,
             reps,
-            i64,
-            i64,
-            Option<i64>,
-            String,
-            Option<String>,
+            lapses,
+            step,
+            state,
+            last_review_at,
         ): (
             String,
             String,
@@ -637,6 +763,52 @@ mod tests {
         assert!(step.is_none());
         assert_eq!(state, "new");
         assert!(last_review_at.is_none());
+    }
+
+    #[test]
+    fn update_review_state_persists_fsrs_values() {
+        let conn = init_test_db();
+        let entries = vec![test_entry(
+            "dataset",
+            "Researchers are analyzing multilingual datasets for robust tagging.",
+            "datasets",
+            Some(WordnetPos::Noun),
+        )];
+        let deck_id = save_deck(&conn, "FSRS Deck", "file", "/tmp/fsrs.txt", 1, &entries).unwrap();
+        let vocabulary_entry_id: i64 = conn
+            .query_row(
+                "SELECT id FROM vocabulary_entries WHERE deck_id = ?1 LIMIT 1",
+                params![deck_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        let due_at = Utc.with_ymd_and_hms(2026, 6, 30, 9, 0, 0).unwrap();
+        let reviewed_at = Utc.with_ymd_and_hms(2026, 6, 27, 9, 0, 0).unwrap();
+        let scheduled = ScheduledReviewState {
+            due_at,
+            stability: 3.25,
+            difficulty: 5.75,
+            reps: 1,
+            lapses: 1,
+            step: Some(0),
+            state: ReviewStateKind::Relearning,
+            last_review_at: reviewed_at,
+            interval_days: 3,
+        };
+
+        update_review_state(&conn, vocabulary_entry_id, &scheduled).unwrap();
+        let loaded = get_review_state(&conn, vocabulary_entry_id).unwrap();
+
+        assert_eq!(loaded.vocabulary_entry_id, vocabulary_entry_id);
+        assert_eq!(loaded.due_at, due_at);
+        assert_eq!(loaded.stability, Some(3.25));
+        assert_eq!(loaded.difficulty, Some(5.75));
+        assert_eq!(loaded.reps, 1);
+        assert_eq!(loaded.lapses, 1);
+        assert_eq!(loaded.step, Some(0));
+        assert_eq!(loaded.state, ReviewStateKind::Relearning);
+        assert_eq!(loaded.last_review_at, Some(reviewed_at));
     }
 
     #[test]
