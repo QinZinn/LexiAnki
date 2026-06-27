@@ -474,6 +474,10 @@ fn substring_by_char_range(s: &str, start_char: usize, end_char: usize) -> Strin
     s.get(start_byte..end_byte).unwrap_or("").to_string()
 }
 
+// This Rust-native copy is intentional: `lexiflash_app` and the new desktop
+// pipeline use `lexianki_nlp`, while the legacy Python CLI still calls the PyO3
+// implementation in `lexianki_rs`. Keep both implementations behaviorally
+// aligned when the truncation algorithm changes.
 fn find_token_match(sentence: &str, target_token: &str) -> Option<(usize, usize)> {
     if target_token.is_empty() {
         return None;
