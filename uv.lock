@@ -239,7 +239,7 @@ wheels = [
 ]
 
 [[package]]
-name = "lexianki"
+name = "lexiflash"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

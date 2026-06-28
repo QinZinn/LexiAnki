@@ -1,5 +1,5 @@
 [project]
-name = "lexianki"
+name = "lexiflash"
 version = "0.1.0"
 description = "Hybrid Python+Rust CLI to extract vocabulary and generate Anki decks"
 readme = "README.md"
