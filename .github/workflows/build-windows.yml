@@ -1,0 +1,61 @@
+name: Build Windows Release Artifact
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            lexiflash_app -> target
+            lexiflash_nlp -> target
+
+      - name: Check WebView2 runtime presence
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "$Env:ProgramFiles(x86)\Microsoft\EdgeWebView\Application",
+            "$Env:ProgramFiles\Microsoft\EdgeWebView\Application"
+          )
+
+          $found = $candidates | Where-Object { Test-Path $_ }
+          if ($found.Count -gt 0) {
+            Write-Host "WebView2 runtime detected on runner:"
+            $found | ForEach-Object { Write-Host " - $_" }
+          } else {
+            Write-Host "WebView2 runtime was not found in the standard locations."
+            Write-Host "The binary can still compile; runtime availability is validated when the artifact is tested on Windows."
+          }
+
+      - name: Build Windows release binary
+        run: cargo build --release --manifest-path lexiflash_app/Cargo.toml
+
+      - name: Prepare release artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item lexiflash_app/target/release/lexiflash_app.exe dist/LexiFlash.exe
+
+      - name: Upload LexiFlash.exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LexiFlash-windows-portable
+          path: dist/LexiFlash.exe
+          if-no-files-found: error
