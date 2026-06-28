@@ -17,6 +17,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -47,15 +52,31 @@ jobs:
       - name: Build Windows release binary
         run: cargo build --release --manifest-path lexiflash_app/Cargo.toml
 
+      - name: Download NLTK data for portable bundle
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip nltk
+          python -c "import nltk; nltk.download('wordnet', download_dir='nltk_data'); nltk.download('stopwords', download_dir='nltk_data')"
+
       - name: Prepare release artifact
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item lexiflash_app/target/release/lexiflash_app.exe dist/LexiFlash.exe
+          New-Item -ItemType Directory -Force dist/LexiFlash/nlp-data | Out-Null
+          Copy-Item lexiflash_app/target/release/lexiflash_app.exe dist/LexiFlash/LexiFlash.exe
+          Copy-Item nltk_data/corpora/wordnet.zip dist/LexiFlash/nlp-data/wordnet.zip
+          Copy-Item nltk_data/corpora/stopwords/english dist/LexiFlash/nlp-data/stopwords-english
+          @"
+          @echo off
+          setlocal
+          set "SCRIPT_DIR=%~dp0"
+          set "WORDNET_ZIP_PATH=%SCRIPT_DIR%nlp-data\wordnet.zip"
+          set "STOPWORDS_ENGLISH_PATH=%SCRIPT_DIR%nlp-data\stopwords-english"
+          "%SCRIPT_DIR%LexiFlash.exe" %*
+          "@ | Set-Content dist/LexiFlash/Launch-LexiFlash.bat
 
       - name: Upload LexiFlash.exe artifact
         uses: actions/upload-artifact@v4
         with:
           name: LexiFlash-windows-portable
-          path: dist/LexiFlash.exe
+          path: dist/LexiFlash
           if-no-files-found: error
