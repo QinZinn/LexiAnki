@@ -10,7 +10,7 @@ dioxus = { version = "=0.7.9", features = ["desktop", "launch"] }
 dioxus-desktop = "=0.7.9"
 dirs = "=5.0.1"
 fsrs = "=6.6.1"
-lexianki_nlp = { path = "../lexianki_nlp" }
+lexiflash_nlp = { path = "../lexiflash_nlp" }
 office_oxide = "0.1.2"
 pdf_oxide = "0.3.55"
 reqwest = { version = "0.11.27", default-features = false, features = ["brotli", "deflate", "gzip", "rustls-tls"] }

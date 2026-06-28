@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
-use lexianki_nlp::{VocabularyEntry, WordnetPos};
+use lexiflash_nlp::{VocabularyEntry, WordnetPos};
 use rusqlite::{Connection, params};
 use std::fs;
 use std::io;

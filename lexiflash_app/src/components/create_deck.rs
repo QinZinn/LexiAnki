@@ -2,7 +2,7 @@ use std::path::Path;
 
 use dioxus::prelude::*;
 use lexiflash_app::db;
-use lexianki_nlp::{LexiankiNlp, VocabularyEntry};
+use lexiflash_nlp::{LexiFlashNlp, VocabularyEntry};
 use rfd::FileDialog;
 
 use crate::article_content::ArticleContent;
@@ -335,7 +335,7 @@ fn build_preview(article: &ArticleContent) -> anyhow::Result<DeckPreview> {
     let source = article.url.clone();
     let sentence_count = article.sentences.len();
     let title = article.title.clone();
-    let nlp = LexiankiNlp::new()?;
+    let nlp = LexiFlashNlp::new()?;
     let vocabulary = nlp.process_article(&article.sentences);
 
     Ok(DeckPreview {

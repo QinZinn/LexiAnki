@@ -8,7 +8,7 @@ mod text_utils;
 mod url_scraper;
 
 use lexiflash_app::db;
-use lexianki_nlp::LexiankiNlp;
+use lexiflash_nlp::LexiFlashNlp;
 use std::path::Path;
 
 #[tokio::main]
@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let nlp = LexiankiNlp::new()?;
+    let nlp = LexiFlashNlp::new()?;
     let entries = nlp.process_article(&article.sentences);
 
     let db_path = db::default_db_path()?;

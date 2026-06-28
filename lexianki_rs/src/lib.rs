@@ -33,7 +33,7 @@ fn substring_by_char_range(s: &str, start_char: usize, end_char: usize) -> Strin
 
 // Legacy note: this crate remains the PyO3 bridge used by the Python CLI in
 // `main.py`/`src/processor.py`. The desktop app's Rust-native pipeline lives in
-// `lexianki_nlp`, which keeps its own `truncate_context` copy because it cannot
+// `lexiflash_nlp`, which keeps its own `truncate_context` copy because it cannot
 // depend on this extension module as a normal Rust library API.
 fn find_token_match(sentence: &str, target_token: &str) -> Option<(usize, usize)> {
     if target_token.is_empty() {
@@ -85,7 +85,7 @@ fn lexianki_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 #[pyfunction]
-// Keep this algorithm intentionally aligned with `lexianki_nlp::truncate_context`
+// Keep this algorithm intentionally aligned with `lexiflash_nlp::truncate_context`
 // when behavior changes are required, but do not remove it while the legacy
 // Python CLI still calls `lexianki_rs.truncate_context(...)`.
 fn truncate_context(sentence: &str, target_token: &str, max_length: usize) -> PyResult<String> {

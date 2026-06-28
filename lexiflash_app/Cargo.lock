@@ -3448,7 +3448,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a79a3332a6609480d7d0c9eab957bca6b455b91bb84e66d19f5ff66294b85b8"
 
 [[package]]
-name = "lexianki_nlp"
+name = "lexiflash_app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dioxus",
+ "dioxus-desktop",
+ "dirs 5.0.1",
+ "fsrs",
+ "lexiflash_nlp",
+ "office_oxide",
+ "pdf_oxide",
+ "reqwest",
+ "rfd 0.15.4",
+ "rusqlite",
+ "scraper",
+ "tokio",
+]
+
+[[package]]
+name = "lexiflash_nlp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -3460,26 +3480,6 @@ dependencies = [
  "wordnet-db",
  "wordnet-types",
  "zip 2.4.2",
-]
-
-[[package]]
-name = "lexiflash_app"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "dioxus",
- "dioxus-desktop",
- "dirs 5.0.1",
- "fsrs",
- "lexianki_nlp",
- "office_oxide",
- "pdf_oxide",
- "reqwest",
- "rfd 0.15.4",
- "rusqlite",
- "scraper",
- "tokio",
 ]
 
 [[package]]

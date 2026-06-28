@@ -1,5 +1,5 @@
 use anyhow::Result;
-use lexianki_nlp::LexiankiNlp;
+use lexiflash_nlp::LexiFlashNlp;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -9,7 +9,7 @@ struct Input {
 
 fn main() -> Result<()> {
     let input: Input = serde_json::from_reader(std::io::stdin())?;
-    let nlp = LexiankiNlp::new()?;
+    let nlp = LexiFlashNlp::new()?;
 
     let mut outputs = Vec::new();
     for sentence in input.sentences {

@@ -58,7 +58,7 @@ struct WordnetResources {
     database: WordNet,
 }
 
-pub struct LexiankiNlp {
+pub struct LexiFlashNlp {
     tokenizer: Tokenizer,
     wordnet: WordnetResources,
     stop_words: HashSet<String>,
@@ -75,7 +75,7 @@ struct PreparedToken {
     is_sentence_start: bool,
 }
 
-impl LexiankiNlp {
+impl LexiFlashNlp {
     pub fn new() -> Result<Self> {
         let mut tokenizer_bytes: &[u8] = include_bytes!(concat!(
             env!("OUT_DIR"),
@@ -290,11 +290,11 @@ fn find_wordnet_zip() -> Result<PathBuf> {
 
 fn wordnet_cache_dir() -> Result<PathBuf> {
     if let Ok(cache_home) = std::env::var("XDG_CACHE_HOME") {
-        return Ok(PathBuf::from(cache_home).join("lexianki_nlp/wordnet_extracted"));
+        return Ok(PathBuf::from(cache_home).join("lexiflash_nlp/wordnet_extracted"));
     }
 
     let home = std::env::var("HOME").context("HOME must be set to derive cache directory")?;
-    Ok(PathBuf::from(home).join(".cache/lexianki_nlp/wordnet_extracted"))
+    Ok(PathBuf::from(home).join(".cache/lexiflash_nlp/wordnet_extracted"))
 }
 
 fn ensure_extracted_wordnet_dir(zip_path: &Path) -> Result<PathBuf> {
@@ -475,7 +475,7 @@ fn substring_by_char_range(s: &str, start_char: usize, end_char: usize) -> Strin
 }
 
 // This Rust-native copy is intentional: `lexiflash_app` and the new desktop
-// pipeline use `lexianki_nlp`, while the legacy Python CLI still calls the PyO3
+// pipeline use `lexiflash_nlp`, while the legacy Python CLI still calls the PyO3
 // implementation in `lexianki_rs`. Keep both implementations behaviorally
 // aligned when the truncation algorithm changes.
 fn find_token_match(sentence: &str, target_token: &str) -> Option<(usize, usize)> {
@@ -622,7 +622,7 @@ mod tests {
 
     #[test]
     fn filters_basic_sentence_as_expected() {
-        let nlp = LexiankiNlp::new().unwrap();
+        let nlp = LexiFlashNlp::new().unwrap();
         let sentence = "She was reading the largest books in various categories.";
         let tokens = nlp.process_sentence_steps_1_4(sentence);
         let words: Vec<String> = tokens.into_iter().map(|t| t.token).collect();
@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     fn filters_proper_nouns() {
-        let nlp = LexiankiNlp::new().unwrap();
+        let nlp = LexiFlashNlp::new().unwrap();
         let sentence = "Robert and Sarah visited the beautiful city of Paris.";
         let tokens = nlp.process_sentence_steps_1_4(sentence);
         let words: HashSet<String> = tokens.into_iter().map(|t| t.token).collect();
@@ -656,7 +656,7 @@ mod tests {
 
     #[test]
     fn lemmatizes_basic_sentence() {
-        let nlp = LexiankiNlp::new().unwrap();
+        let nlp = LexiFlashNlp::new().unwrap();
         let sentence = "She was reading the largest books in various categories.";
         let tokens = nlp.process_sentence_steps_1_6(sentence);
         let lemmas: Vec<String> = tokens.into_iter().map(|t| t.lemma).collect();
@@ -665,7 +665,7 @@ mod tests {
 
     #[test]
     fn documents_known_lemmatization_difference_vs_nltk() {
-        let nlp = LexiankiNlp::new().unwrap();
+        let nlp = LexiFlashNlp::new().unwrap();
         let sentence = "Researchers are analyzing multilingual datasets for robust tagging.";
         let tokens = nlp.process_sentence_steps_1_6(sentence);
         let datasets = tokens.iter().find(|t| t.token == "datasets").unwrap();
@@ -677,7 +677,7 @@ mod tests {
 
     #[test]
     fn heuristic_filters_mid_sentence_capitalized_tokens() {
-        let nlp = LexiankiNlp::new().unwrap();
+        let nlp = LexiFlashNlp::new().unwrap();
         let sentence = "Our American guide described Parisian architecture to curious visitors.";
         let tokens = nlp.process_sentence_steps_1_8(sentence);
         let words: HashSet<String> = tokens.into_iter().map(|t| t.token).collect();
@@ -689,7 +689,7 @@ mod tests {
 
     #[test]
     fn wordnet_gate_filters_sentence_start_american() {
-        let nlp = LexiankiNlp::new().unwrap();
+        let nlp = LexiFlashNlp::new().unwrap();
         let sentence = "American researchers visited Boston during Vietnamese cultural events.";
         let tokens = nlp.process_sentence_steps_1_8(sentence);
         let words: HashSet<String> = tokens.iter().map(|t| t.token.clone()).collect();
@@ -701,7 +701,7 @@ mod tests {
 
     #[test]
     fn post_lemmatization_validation_filters_short_lemmas() {
-        let nlp = LexiankiNlp::new().unwrap();
+        let nlp = LexiFlashNlp::new().unwrap();
         let sentence = "Researchers are analyzing multilingual datasets for robust tagging.";
         let entries = nlp.process_sentence_full(sentence);
         assert!(!entries.iter().any(|entry| entry.lemma.chars().count() < 5));
